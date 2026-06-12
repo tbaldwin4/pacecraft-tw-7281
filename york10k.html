@@ -7,6 +7,8 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#0b0e14">
 <title>Pacecraft · York 10K</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
 :root{
   --bg:#0b0e14; --panel:#141925; --panel2:#1b2231; --line:#252e42;
@@ -199,6 +201,10 @@ label{display:block;font-size:12px;font-weight:700;letter-spacing:.08em;text-tra
 #blackout{position:fixed;inset:0;z-index:130;background:#000;display:none;align-items:center;justify-content:center}
 #blackout.open{display:flex}
 #blackout span{color:#1c1c1c;font-size:13px;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
+#runMap{height:190px;border-radius:14px;border:1px solid var(--line);margin-bottom:14px;overflow:hidden;background:var(--panel)}
+#routeMap{height:300px;border-radius:14px;border:1px solid var(--line);margin-top:12px;overflow:hidden;background:var(--panel2)}
+.leaflet-container{background:#1a2030;font-family:inherit}
+.actbtns{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
 </style>
 </head>
 <body>
@@ -539,7 +545,11 @@ function renderLog(){
       ${a.feel?`<div><b>${["😖","😕","🙂","😀","🔥"][a.feel-1]}</b><small>feel</small></div>`:""}
     </div>
     ${a.note?`<div class="muted" style="margin-top:9px;font-size:14px">${esc(a.note)}</div>`:""}
-    <div style="margin-top:10px"><button class="btn danger sm" onclick="delAct(${state.activities.indexOf(a)})">Delete</button></div>
+    <div class="actbtns">
+      ${a.track&&a.track.length>1?`<button class="btn ghost sm" onclick="showRoute(${state.activities.indexOf(a)})">🗺 Route</button>
+      <button class="btn ghost sm" onclick="exportGPX(${state.activities.indexOf(a)})">Export GPX → Strava</button>`:""}
+      <button class="btn danger sm" onclick="delAct(${state.activities.indexOf(a)})">Delete</button>
+    </div>
   </div>`).join("")
   : `<div class="card"><div class="empty"><div class="big">👟</div><b>No runs logged yet</b><br><span style="font-size:14px">Log your first run and Pacecraft will start tracking pace trends, weekly mileage and how you're stacking up against the plan.</span></div></div>`);
 }
@@ -743,7 +753,8 @@ function openRunSetup(id){
 }
 
 const RUN = { active:false, paused:false, watchId:null, timer:null, wakeLock:null,
-  woId:null, mode:"coach", band:[390,425], freq:60,
+  woId:null, mode:"coach", band:[390,425], freq:60, track:[], startIso:"",
+  map:null, poly:null, marker:null, lastPan:0,
   startT:0, pausedAt:0, pausedTotal:0, dist:0, lastFix:null, buf:[], splits:[], nextKm:1,
   lastCue:0, gpsOk:false, gpsEver:false };
 
@@ -755,6 +766,7 @@ function startRun(id){
   RUN.woId = id==="free"? null : id;
   RUN.active=true; RUN.paused=false; RUN.dist=0; RUN.lastFix=null; RUN.buf=[]; RUN.splits=[]; RUN.nextKm=1;
   RUN.startT=Date.now(); RUN.pausedTotal=0; RUN.lastCue=0; RUN.gpsOk=false; RUN.gpsEver=false;
+  RUN.track=[]; RUN.startIso=new Date().toISOString(); RUN.lastPan=0;
   closeSheet(); buildRunScreen();
   requestWake();
   if(navigator.geolocation){
@@ -787,6 +799,7 @@ function buildRunScreen(){
       <div class="cell"><b id="rAvg">–:––</b><small>avg /km</small></div>
       <div class="cell"><b id="rLast">–:––</b><small>last km</small></div>
     </div>
+    <div id="runMap"></div>
     <div class="splitList" id="rSplits"></div>
     <div class="runBtns">
       <button class="btn ghost" onclick="toggleBlackout(true)">Blackout</button>
@@ -797,6 +810,7 @@ function buildRunScreen(){
   let bo = document.getElementById("blackout");
   if(!bo){ bo = document.createElement("div"); bo.id="blackout"; bo.innerHTML="<span>tap to view</span>";
     bo.addEventListener("click",()=>toggleBlackout(false)); document.body.appendChild(bo); }
+  initRunMap();
   updateGpsDot();
 }
 function updateGpsDot(){
@@ -824,6 +838,12 @@ function onFix(pos){
   RUN.lastFix=fix;
   RUN.buf.push({t:fix.t, d:RUN.dist});
   while(RUN.buf.length && fix.t-RUN.buf[0].t>50000) RUN.buf.shift();
+  /* route track: keep a point every ~8m */
+  const lastP = RUN.track[RUN.track.length-1];
+  if(!lastP || hav({lat:lastP.a,lon:lastP.o},fix)>=8){
+    RUN.track.push({a:+fix.lat.toFixed(6), o:+fix.lon.toFixed(6), t:Math.round(elapsed())});
+    updateRunMap(fix);
+  }
 }
 function elapsed(){ return (Date.now()-RUN.startT-RUN.pausedTotal)/1000; }
 function rollingPace(){
@@ -882,6 +902,84 @@ function toggleBlackout(on){
   if(bo) bo.classList.toggle("open", !!on);
   if(on) requestWake();
 }
+
+/* ---------- maps & GPX ---------- */
+function tileLayer(){
+  return L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+    {maxZoom:19, attribution:'© OpenStreetMap contributors'});
+}
+function initRunMap(){
+  try{
+    if(typeof L==="undefined"){ const m=document.getElementById("runMap"); if(m) m.style.display="none"; return; }
+    if(RUN.map){ RUN.map.remove(); RUN.map=null; }
+    RUN.map = L.map("runMap",{zoomControl:false, attributionControl:true}).setView([51.39,-0.42],15);
+    tileLayer().addTo(RUN.map);
+    RUN.poly = L.polyline([],{color:"#d8f34e",weight:5,opacity:0.95}).addTo(RUN.map);
+    RUN.marker = null;
+  }catch(e){ const m=document.getElementById("runMap"); if(m) m.style.display="none"; }
+}
+function updateRunMap(fix){
+  try{
+    if(!RUN.map||typeof L==="undefined") return;
+    const ll=[fix.lat,fix.lon];
+    RUN.poly.addLatLng(ll);
+    if(!RUN.marker){ RUN.marker=L.circleMarker(ll,{radius:8,color:"#0b0e14",weight:3,fillColor:"#d8f34e",fillOpacity:1}).addTo(RUN.map); RUN.map.setView(ll,16); }
+    else RUN.marker.setLatLng(ll);
+    const now=Date.now();
+    if(now-RUN.lastPan>5000){ RUN.map.panTo(ll,{animate:true}); RUN.lastPan=now; }
+  }catch(e){}
+}
+function thinTrack(track,maxPts){
+  if(!track || track.length<=maxPts) return track||[];
+  const step = track.length/maxPts, out=[];
+  for(let i=0;i<track.length;i+=step) out.push(track[Math.floor(i)]);
+  if(out[out.length-1]!==track[track.length-1]) out.push(track[track.length-1]);
+  return out;
+}
+function showRoute(i){
+  const a=state.activities[i]; if(!a||!a.track||a.track.length<2) return;
+  openSheet(`
+    <h2>${esc(a.name)}</h2>
+    <div class="muted">${fmtD(a.date)} · ${a.km}km · ${paceFrom(a.km,a.mins)}</div>
+    <div id="routeMap"></div>
+    <button class="btn ghost" style="margin-top:14px" onclick="exportGPX(${i})">Export GPX → upload to Strava</button>
+  `);
+  setTimeout(()=>{
+    try{
+      if(typeof L==="undefined"){ document.getElementById("routeMap").innerHTML="<div class='empty'>Map needs an internet connection</div>"; return; }
+      const pts=a.track.map(p=>[p.a,p.o]);
+      const m=L.map("routeMap",{zoomControl:false}); tileLayer().addTo(m);
+      const line=L.polyline(pts,{color:"#d8f34e",weight:5,opacity:.95}).addTo(m);
+      L.circleMarker(pts[0],{radius:7,color:"#0b0e14",weight:2,fillColor:"#7ed957",fillOpacity:1}).addTo(m);
+      L.circleMarker(pts[pts.length-1],{radius:7,color:"#0b0e14",weight:2,fillColor:"#ff3b5c",fillOpacity:1}).addTo(m);
+      m.fitBounds(line.getBounds(),{padding:[24,24]});
+      setTimeout(()=>m.invalidateSize(),250);
+    }catch(e){}
+  },120);
+}
+function exportGPX(i){
+  const a=state.activities[i]; if(!a||!a.track||a.track.length<2){ toast("No GPS track on this run"); return; }
+  const start = a.startIso? new Date(a.startIso) : new Date(a.date+"T08:00:00");
+  const pts = a.track.map(p=>{
+    const t = new Date(start.getTime()+p.t*1000).toISOString();
+    return `<trkpt lat="${p.a}" lon="${p.o}"><time>${t}</time></trkpt>`;
+  }).join("\n");
+  const gpx = `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="Pacecraft" xmlns="http://www.topografix.com/GPX/1/1">
+<trk><name>${esc(a.name)}</name><type>running</type><trkseg>
+${pts}
+</trkseg></trk></gpx>`;
+  try{
+    const blob = new Blob([gpx],{type:"application/gpx+xml"});
+    const url = URL.createObjectURL(blob);
+    const aEl = document.createElement("a");
+    aEl.href=url; aEl.download=(a.name.replace(/[^a-z0-9]+/gi,"-").toLowerCase()||"run")+"-"+a.date+".gpx";
+    document.body.appendChild(aEl); aEl.click(); aEl.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),4000);
+    toast("GPX saved — upload at strava.com/upload");
+  }catch(e){ toast("Export failed in this browser"); }
+}
+
 function pauseRun(){
   if(!RUN.paused){ RUN.paused=true; RUN.pausedAt=Date.now(); document.getElementById("rPause").textContent="Resume"; speak("Paused."); }
   else { RUN.pausedTotal+=Date.now()-RUN.pausedAt; RUN.paused=false; RUN.lastFix=null; RUN.buf=[]; document.getElementById("rPause").textContent="Pause"; speak("Resuming."); }
@@ -899,7 +997,8 @@ function finishRun(){
   if(km>=0.2){
     const mins=+(t/60).toFixed(1), kmR=+km.toFixed(2);
     state.activities.push({name:(w?w.name:"Guided run"), date:todayISO(), km:kmR, mins, feel:0,
-      note:"Guided run · "+RUN.splits.map((s,i)=>"km"+(i+1)+" "+secToPace(s)).join(", "), link:RUN.woId||""});
+      note:"Guided run · "+RUN.splits.map((s,i)=>"km"+(i+1)+" "+secToPace(s)).join(", "), link:RUN.woId||"",
+      track:thinTrack(RUN.track,1000), startIso:RUN.startIso});
     if(RUN.woId) state.done[RUN.woId]=true;
     save();
     speak(`Run complete. ${km.toFixed(2)} kilometres in ${sayClock(t)}. Average ${sayPace(t/km)}. Well done, Tom.`);
