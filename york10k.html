@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0b0e14">
+<title>Pacecraft · York 10K</title>
+<style>
+:root{
+  --bg:#0b0e14; --panel:#141925; --panel2:#1b2231; --line:#252e42;
+  --text:#eef2f8; --muted:#8d99b0; --faint:#5b6780;
+  --volt:#d8f34e; --volt-dim:#a7c02f;
+  --easy1:#7ed957; --easy2:#c9e84a;
+  --int1:#ff5b4a; --int2:#ff9d2e;
+  --tempo1:#ffb02e; --tempo2:#ffd34e;
+  --long1:#9b6bff; --long2:#c39bff;
+  --race1:#ff3b5c; --race2:#ff7a4a;
+  --radius:18px;
+  --safe-b:env(safe-area-inset-bottom,0px);
+  --safe-t:env(safe-area-inset-top,0px);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{
+  background:var(--bg); color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  font-size:16px; line-height:1.45; overscroll-behavior-y:none;
+}
+h1,h2,h3,.display{font-family:-apple-system-headline,-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",sans-serif;letter-spacing:-0.02em}
+#appWrap{max-width:560px;margin:0 auto;min-height:100%;display:flex;flex-direction:column}
+main{flex:1;padding:calc(var(--safe-t) + 12px) 16px calc(96px + var(--safe-b));}
+
+/* ---------- header ---------- */
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:6px 2px 14px}
+.brand{display:flex;align-items:center;gap:10px}
+.brand .mark{width:34px;height:34px;border-radius:10px;background:var(--volt);display:flex;align-items:center;justify-content:center;color:#10130a;font-weight:800;font-size:18px;transform:skewX(-6deg)}
+.brand b{font-size:19px;font-weight:800}
+.brand small{display:block;font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.08em;text-transform:uppercase}
+.avatar{width:34px;height:34px;border-radius:50%;background:var(--panel2);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--muted)}
+
+/* ---------- cards ---------- */
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:14px}
+.card.glow{border-color:#39455f;box-shadow:0 0 0 1px rgba(216,243,78,.06), 0 12px 30px -18px rgba(0,0,0,.8)}
+.eyebrow{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin-bottom:6px}
+.muted{color:var(--muted)} .faint{color:var(--faint)}
+.row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+
+/* ---------- countdown hero ---------- */
+.hero{position:relative;overflow:hidden;background:linear-gradient(150deg,#161d2c 0%, #10141f 70%);}
+.hero .track{position:absolute;inset:-30% -10% auto auto;width:240px;height:240px;border:2px dashed rgba(216,243,78,.18);border-radius:50%;}
+.hero .track:after{content:"";position:absolute;inset:26px;border:2px dashed rgba(216,243,78,.10);border-radius:50%}
+.count{font-size:54px;font-weight:800;letter-spacing:-0.03em;line-height:1;margin:4px 0 2px}
+.count span{font-size:18px;font-weight:700;color:var(--volt);margin-left:6px;letter-spacing:0}
+.heroMeta{display:flex;gap:18px;margin-top:14px;flex-wrap:wrap}
+.heroMeta .m b{display:block;font-size:17px}
+.heroMeta .m small{color:var(--muted);font-size:12px}
+
+/* ---------- workout cards ---------- */
+.wo{display:flex;gap:0;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;margin-bottom:12px;cursor:pointer;transition:transform .08s ease}
+.wo:active{transform:scale(.985)}
+.wo .stripe{width:7px;flex:none}
+.wo .body{flex:1;padding:14px 14px 13px}
+.wo h3{font-size:18px;font-weight:750;margin-bottom:2px}
+.wo .sub{font-size:13px;color:var(--muted)}
+.wo .tag{display:inline-block;margin-top:9px;font-size:12px;font-weight:700;padding:3px 9px;border-radius:999px;background:var(--panel2);border:1px solid var(--line);color:var(--text)}
+.wo .right{padding:14px 14px 0 0;display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+.check{width:26px;height:26px;border-radius:9px;border:2px solid var(--line);display:flex;align-items:center;justify-content:center;color:transparent;font-size:15px;font-weight:800;flex:none;transition:all .15s}
+.check.on{background:var(--volt);border-color:var(--volt);color:#10130a}
+.wo.done h3{text-decoration:line-through;color:var(--muted)}
+.t-easy{background:linear-gradient(var(--easy1),var(--easy2))}
+.t-intervals{background:linear-gradient(var(--int1),var(--int2))}
+.t-tempo{background:linear-gradient(var(--tempo1),var(--tempo2))}
+.t-long{background:linear-gradient(var(--long1),var(--long2))}
+.t-race{background:linear-gradient(var(--race1),var(--race2))}
+.t-taper{background:linear-gradient(var(--int1),var(--int2))}
+.dot{width:12px;height:12px;border-radius:4px;display:inline-block;flex:none}
+
+/* ---------- week cards ---------- */
+.week{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:14px}
+.week.current{border-color:rgba(216,243,78,.5)}
+.week .dates{font-size:12px;font-weight:700;letter-spacing:.1em;color:var(--faint);text-transform:uppercase}
+.week h2{font-size:24px;margin:2px 0 10px}
+.progressBar{display:flex;gap:6px;margin-bottom:10px}
+.progressBar i{flex:1;height:5px;border-radius:3px;background:var(--line)}
+.progressBar i.done{background:var(--volt)}
+.week .stats{font-size:13px;color:var(--muted);margin-bottom:12px}
+.week .stats b{color:var(--text)}
+.wline{display:flex;align-items:center;gap:12px;padding:9px 4px;border-radius:10px;cursor:pointer}
+.wline:active{background:var(--panel2)}
+.wline .d{width:42px;color:var(--muted);font-size:14px;font-weight:600;flex:none}
+.wline .n{flex:1;font-size:15.5px}
+.wline .n.done{text-decoration:line-through;color:var(--faint)}
+.wline .km{color:var(--muted);font-size:13px}
+
+/* ---------- pace zones ---------- */
+.zones .z{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}
+.zones .z:last-child{border-bottom:none}
+.zones .z b{font-size:15px;display:block}
+.zones .z small{color:var(--muted)}
+.zones .z .pace{margin-left:auto;font-weight:800;font-size:16px;font-variant-numeric:tabular-nums}
+
+/* ---------- buttons ---------- */
+.btn{display:block;width:100%;text-align:center;background:var(--text);color:#0c0f16;border:none;border-radius:999px;padding:15px;font-size:16px;font-weight:750;cursor:pointer;font-family:inherit}
+.btn:active{opacity:.85}
+.btn.volt{background:var(--volt);color:#10130a}
+.btn.ghost{background:transparent;color:var(--text);border:1.5px solid var(--line)}
+.btn.sm{padding:10px 14px;font-size:14px;width:auto;display:inline-block}
+.btn.danger{background:transparent;border:1.5px solid #5c2a33;color:#ff7a8a}
+
+/* ---------- tab bar ---------- */
+nav{position:fixed;left:0;right:0;bottom:0;background:rgba(13,17,25,.92);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-top:1px solid var(--line);z-index:40}
+nav .inner{max-width:560px;margin:0 auto;display:flex;padding:8px 6px calc(8px + var(--safe-b))}
+nav button{flex:1;background:none;border:none;color:var(--faint);font-family:inherit;font-size:11px;font-weight:650;display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px 0;cursor:pointer}
+nav button svg{width:23px;height:23px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+nav button.active{color:var(--volt)}
+
+/* ---------- modal sheet ---------- */
+.sheetWrap{position:fixed;inset:0;z-index:60;display:none}
+.sheetWrap.open{display:block}
+.scrim{position:absolute;inset:0;background:rgba(4,6,10,.66)}
+.sheet{position:absolute;left:0;right:0;bottom:0;max-width:560px;margin:0 auto;background:var(--panel);border-radius:24px 24px 0 0;border:1px solid var(--line);border-bottom:none;max-height:88vh;overflow-y:auto;padding:10px 18px calc(26px + var(--safe-b));animation:up .22s ease}
+@keyframes up{from{transform:translateY(40px);opacity:.4}to{transform:translateY(0);opacity:1}}
+.handle{width:42px;height:5px;border-radius:3px;background:var(--line);margin:6px auto 16px}
+.sheet h2{font-size:25px;margin-bottom:2px}
+.step{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}
+.step:last-of-type{border-bottom:none}
+.step .ic{width:34px;height:34px;border-radius:10px;flex:none;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;color:#10130a}
+.step b{display:block;font-size:15.5px}
+.step small{color:var(--muted);font-size:13px}
+.pillrow{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+.pill{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:9px 13px;font-size:13px}
+.pill b{display:block;font-size:15px;font-variant-numeric:tabular-nums}
+.pill small{color:var(--muted);font-size:11px;font-weight:650;letter-spacing:.06em;text-transform:uppercase}
+textarea,input,select{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:12px;padding:12px;font-family:inherit;font-size:16px;outline:none}
+textarea:focus,input:focus,select:focus{border-color:var(--volt-dim)}
+label{display:block;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);margin:14px 0 6px}
+
+/* ---------- charts ---------- */
+.chart{width:100%;height:auto;display:block;margin-top:8px}
+.barlabel{font-size:10px;fill:var(--faint);font-family:inherit}
+.barval{font-size:10px;fill:var(--muted);font-family:inherit}
+
+/* ---------- activities ---------- */
+.act{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:14px;margin-bottom:12px}
+.act .top{display:flex;justify-content:space-between;align-items:baseline}
+.act h3{font-size:16.5px}
+.act .when{font-size:12px;color:var(--faint)}
+.act .nums{display:flex;gap:22px;margin-top:10px}
+.act .nums b{display:block;font-size:19px;font-variant-numeric:tabular-nums}
+.act .nums small{color:var(--muted);font-size:11.5px}
+.empty{text-align:center;color:var(--muted);padding:34px 18px}
+.empty .big{font-size:38px;margin-bottom:8px}
+
+/* ---------- checklist ---------- */
+.cl{display:flex;align-items:center;gap:12px;padding:11px 2px;border-bottom:1px solid var(--line);cursor:pointer}
+.cl:last-child{border-bottom:none}
+.cl span{flex:1;font-size:15px}
+.cl.on span{color:var(--faint);text-decoration:line-through}
+
+.banner{background:linear-gradient(120deg,rgba(216,243,78,.12),rgba(155,107,255,.10));border:1px solid rgba(216,243,78,.25);border-radius:var(--radius);padding:14px 16px;margin-bottom:14px;font-size:14px}
+.banner b{color:var(--volt)}
+.coach{display:flex;gap:12px;align-items:flex-start;background:var(--panel2);border-radius:14px;padding:13px;margin:12px 0;font-size:14px;color:var(--muted)}
+.coach .face{width:34px;height:34px;flex:none;border-radius:50%;background:linear-gradient(140deg,var(--long1),var(--int2));display:flex;align-items:center;justify-content:center;font-size:16px}
+.hide{display:none!important}
+.segTabs{display:flex;background:var(--panel2);border-radius:12px;padding:4px;margin-bottom:14px}
+.segTabs button{flex:1;background:none;border:none;border-radius:9px;color:var(--muted);font-family:inherit;font-weight:700;font-size:14px;padding:9px 0;cursor:pointer}
+.segTabs button.on{background:var(--panel);color:var(--text);box-shadow:0 1px 4px rgba(0,0,0,.4)}
+.toast{position:fixed;bottom:calc(96px + var(--safe-b));left:50%;transform:translateX(-50%) translateY(12px);background:var(--text);color:#0c0f16;font-weight:700;font-size:14px;padding:11px 18px;border-radius:999px;opacity:0;pointer-events:none;transition:all .25s;z-index:80;white-space:nowrap}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* ---------- guided run ---------- */
+#runScreen{position:fixed;inset:0;z-index:100;background:var(--bg);display:none;flex-direction:column;padding:calc(var(--safe-t) + 18px) 20px calc(22px + var(--safe-b));max-width:560px;margin:0 auto}
+#runScreen.open{display:flex}
+.runHead{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.runHead .name{font-size:15px;font-weight:750}
+.runHead .name small{display:block;color:var(--muted);font-weight:600;font-size:12px}
+.gpsDot{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:var(--muted)}
+.gpsDot i{width:9px;height:9px;border-radius:50%;background:#5b6780}
+.gpsDot.ok i{background:var(--easy1);box-shadow:0 0 8px rgba(126,217,87,.8)}
+.gpsDot.bad i{background:var(--int1)}
+.bigDist{text-align:center;margin:auto 0}
+.bigDist .km{font-size:84px;font-weight:800;letter-spacing:-0.04em;line-height:1;font-variant-numeric:tabular-nums}
+.bigDist .km span{font-size:24px;color:var(--muted);font-weight:700}
+.bigDist .clock{font-size:22px;color:var(--muted);font-weight:700;font-variant-numeric:tabular-nums;margin-top:6px}
+.paceState{margin:10px auto 0;display:inline-block;padding:7px 18px;border-radius:999px;font-weight:800;font-size:15px;background:var(--panel2);border:1px solid var(--line)}
+.paceState.on{background:rgba(126,217,87,.15);border-color:rgba(126,217,87,.5);color:var(--easy1)}
+.paceState.fast{background:rgba(255,176,46,.14);border-color:rgba(255,176,46,.5);color:var(--tempo2)}
+.paceState.slow{background:rgba(255,91,74,.14);border-color:rgba(255,91,74,.5);color:#ff8c7d}
+.runGrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin:22px 0}
+.runGrid .cell{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px;text-align:center}
+.runGrid b{display:block;font-size:21px;font-variant-numeric:tabular-nums}
+.runGrid small{color:var(--muted);font-size:11px;font-weight:650;letter-spacing:.05em;text-transform:uppercase}
+.runBtns{display:flex;gap:12px}
+.runBtns .btn{flex:1}
+.splitList{max-height:110px;overflow-y:auto;font-size:13.5px;color:var(--muted);margin-bottom:14px}
+.splitList .row{padding:5px 2px;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}
+#blackout{position:fixed;inset:0;z-index:130;background:#000;display:none;align-items:center;justify-content:center}
+#blackout.open{display:flex}
+#blackout span{color:#1c1c1c;font-size:13px;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
+</style>
+</head>
+<body>
+<div id="appWrap">
+<main id="main"></main>
+</div>
+
+<nav><div class="inner">
+  <button data-tab="today" class="active"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9 17 7M7 17l-2.1 2.1"/></svg>Today</button>
+  <button data-tab="plan"><svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="3"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>Plan</button>
+  <button data-tab="log"><svg viewBox="0 0 24 24"><path d="M5 20v-7M12 20V8M19 20v-4"/><path d="M3 20h18"/></svg>Activities</button>
+  <button data-tab="insights"><svg viewBox="0 0 24 24"><path d="M3 17l5-6 4 3 6-8"/><circle cx="20" cy="5" r="1.6"/></svg>Insights</button>
+  <button data-tab="race"><svg viewBox="0 0 24 24"><path d="M5 21V4"/><path d="M5 4h13l-3 4 3 4H5"/></svg>Race</button>
+</div></nav>
+
+<div class="sheetWrap" id="sheetWrap">
+  <div class="scrim" onclick="closeSheet()"></div>
+  <div class="sheet" id="sheet"></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* =========================================================
+   PACECRAFT — personal 10K build for the York 10K, 2 Aug 2026
+   Plan data transcribed from Tom's coached 7-week schedule.
+   ========================================================= */
+
+const RACE = { name:"York 10K", date:"2026-08-02", estLow:"54:10", estHigh:"57:30" };
+
+/* Pace zones derived from a 54:10–57:30 10K estimate (midpoint ≈ 55:50 → ~5:35/km race pace) */
+const ZONES = [
+  {k:"easy",  name:"Easy / Long",  pace:"6:30 – 7:05 /km", note:"Conversational. Most of your week lives here."},
+  {k:"tempo", name:"Tempo",        pace:"5:30 – 5:45 /km", note:"Comfortably hard — controlled effort, ~30–40 min sustainable."},
+  {k:"race",  name:"10K race pace",pace:"5:25 – 5:45 /km", note:"Your target band for 2 Aug."},
+  {k:"int",   name:"Intervals",    pace:"4:55 – 5:15 /km", note:"5K effort and quicker. Short reps, full focus."},
+];
+const PACE = { easy:"6:30–7:05/km", tempo:"5:30–5:45/km", race:"5:25–5:45/km", interval:"4:55–5:15/km", recovery:"very easy jog / walk" };
+
+/* type -> stripe class + label */
+const TYPES = {
+  easy:{cls:"t-easy", label:"Easy Run"},
+  intervals:{cls:"t-intervals", label:"Intervals"},
+  tempo:{cls:"t-tempo", label:"Tempo"},
+  long:{cls:"t-long", label:"Long Run"},
+  taper:{cls:"t-taper", label:"Taper Intervals"},
+  race:{cls:"t-race", label:"Race"}
+};
+
+/* Full plan — every workout from the schedule, with session structures and target paces */
+const PLAN = [
+ {n:1, from:"2026-06-15", to:"2026-06-21", coach:"Welcome to week one. The goal here is rhythm, not heroics — lock in the habit of four runs and keep the easy days genuinely easy.", workouts:[
+   {id:"w1a", day:"Mon", date:"2026-06-15", name:"5km Easy Run", type:"easy", km:5, dur:"30m – 35m", steps:[
+     {t:"run", label:"5km easy", sub:"Relaxed, conversational pace · "+PACE.easy}]},
+   {id:"w1b", day:"Tue", date:"2026-06-16", name:"400m Repeats", type:"intervals", km:5.4, dur:"35m – 45m", steps:[
+     {t:"wu", label:"1.5km warm up", sub:"Easy jog, finish with 3 × 15s strides"},
+     {t:"rep", label:"6 × 400m hard", sub:PACE.interval+" · 90s jog recovery between reps"},
+     {t:"cd", label:"1.5km cool down", sub:"Very easy jog"}]},
+   {id:"w1c", day:"Thu", date:"2026-06-18", name:"Progressive Run", type:"tempo", km:4, dur:"25m – 30m", steps:[
+     {t:"wu", label:"1km easy", sub:PACE.easy},
+     {t:"rep", label:"2km building", sub:"Wind down from easy towards tempo each 500m"},
+     {t:"cd", label:"1km at tempo", sub:PACE.tempo+" · hold it smooth, then jog it out"}]},
+   {id:"w1d", day:"Sat", date:"2026-06-20", name:"6.5km Long Run", type:"long", km:6.5, dur:"40m – 45m", steps:[
+     {t:"run", label:"6.5km steady", sub:"Easy long-run effort · "+PACE.easy}]},
+ ]},
+ {n:2, from:"2026-06-22", to:"2026-06-28", coach:"Volume nudges up this week. The drop set is about finishing each rep strong as the distance falls — don't empty the tank on rep one.", workouts:[
+   {id:"w2a", day:"Mon", date:"2026-06-22", name:"6km Easy Run", type:"easy", km:6, dur:"40m – 45m", steps:[
+     {t:"run", label:"6km easy", sub:PACE.easy}]},
+   {id:"w2b", day:"Wed", date:"2026-06-24", name:"Drop Set", type:"intervals", km:5, dur:"35m – 45m", steps:[
+     {t:"wu", label:"1.5km warm up", sub:"Easy jog + 2 strides"},
+     {t:"rep", label:"800m → 600m → 400m → 200m", sub:PACE.interval+", getting quicker as reps shorten · 90s jog between"},
+     {t:"rep", label:"Repeat: 600m → 400m → 200m", sub:"Same effort ladder, 90s jog between"},
+     {t:"cd", label:"1km cool down", sub:"Very easy"}]},
+   {id:"w2c", day:"Thu", date:"2026-06-25", name:"5km Easy Run", type:"easy", km:5, dur:"30m – 35m", steps:[
+     {t:"run", label:"5km easy", sub:"Legs will be heavy from yesterday — keep it gentle · "+PACE.easy}]},
+   {id:"w2d", day:"Sat", date:"2026-06-27", name:"7.5km Progressive Long Run", type:"long", km:7.5, dur:"45m – 50m", steps:[
+     {t:"run", label:"5.5km easy", sub:PACE.easy},
+     {t:"rep", label:"Final 2km progressive", sub:"Build to steady — finish around "+PACE.tempo}]},
+ ]},
+ {n:3, from:"2026-06-29", to:"2026-07-05", coach:"Down week — distance drops on purpose so you absorb the first block. Resist the urge to add miles; recovery is where fitness lands.", workouts:[
+   {id:"w3a", day:"Mon", date:"2026-06-29", name:"4km Easy Run", type:"easy", km:4, dur:"25m – 30m", steps:[
+     {t:"run", label:"4km easy", sub:PACE.easy}]},
+   {id:"w3b", day:"Tue", date:"2026-06-30", name:"Pyramid Intervals", type:"intervals", km:4, dur:"30m – 35m", steps:[
+     {t:"wu", label:"1km warm up", sub:"Easy jog + strides"},
+     {t:"rep", label:"200m · 400m · 600m · 400m · 200m", sub:PACE.interval+" · jog half the rep distance to recover"},
+     {t:"cd", label:"1km cool down", sub:"Very easy"}]},
+   {id:"w3c", day:"Thu", date:"2026-07-02", name:"Rolling 300s", type:"tempo", km:4, dur:"25m – 30m", steps:[
+     {t:"wu", label:"1km warm up", sub:"Easy jog"},
+     {t:"rep", label:"8 × 300m at tempo", sub:PACE.tempo+" · 100m relaxed float between — keep it rolling"},
+     {t:"cd", label:"800m cool down", sub:"Very easy"}]},
+   {id:"w3d", day:"Sat", date:"2026-07-04", name:"5km Long Run", type:"long", km:5, dur:"30m – 35m", steps:[
+     {t:"run", label:"5km steady", sub:"Short and smooth · "+PACE.easy}]},
+ ]},
+ {n:4, from:"2026-07-06", to:"2026-07-12", coach:"Biggest build yet. The hotspot long run is the key session — practise lifting to race pace on tired legs, exactly what km 7–9 will feel like in York.", workouts:[
+   {id:"w4a", day:"Mon", date:"2026-07-06", name:"7.5km Easy Run", type:"easy", km:7.5, dur:"45m – 55m", steps:[
+     {t:"run", label:"7.5km easy", sub:PACE.easy}]},
+   {id:"w4b", day:"Wed", date:"2026-07-08", name:"1km Repeats", type:"intervals", km:5.5, dur:"35m – 40m", steps:[
+     {t:"wu", label:"1.5km warm up", sub:"Easy jog + 3 strides"},
+     {t:"rep", label:"4 × 1km at threshold", sub:"5:15–5:25/km · 2 min jog recovery"},
+     {t:"cd", label:"Cool down to 5.5km total", sub:"Very easy"}]},
+   {id:"w4c", day:"Thu", date:"2026-07-09", name:"4.5km Easy Run", type:"easy", km:4.5, dur:"25m – 35m", steps:[
+     {t:"run", label:"4.5km easy", sub:"Recovery focus · "+PACE.easy}]},
+   {id:"w4d", day:"Sat", date:"2026-07-11", name:"9km Hotspot Long Run", type:"long", km:9, dur:"55m – 1h0m", steps:[
+     {t:"run", label:"9km easy base", sub:PACE.easy},
+     {t:"rep", label:"3 × 1km hotspots inside it", sub:"At km 3, 5 and 7 lift to race pace ("+PACE.race+"), then settle back"}]},
+ ]},
+ {n:5, from:"2026-07-13", to:"2026-07-19", coach:"Peak week — 28.9km and your first full 10km. Mile repeats are the strength test; the long run is the confidence test. After this, it's downhill to the start line.", workouts:[
+   {id:"w5a", day:"Mon", date:"2026-07-13", name:"7km Easy Run", type:"easy", km:7, dur:"45m – 50m", steps:[
+     {t:"run", label:"7km easy", sub:PACE.easy}]},
+   {id:"w5b", day:"Tue", date:"2026-07-14", name:"Mile Repeats", type:"intervals", km:6.4, dur:"40m – 45m", steps:[
+     {t:"wu", label:"1.5km warm up", sub:"Easy jog + strides"},
+     {t:"rep", label:"3 × 1 mile (1.6km) at threshold", sub:"5:15–5:25/km · 2½ min jog recovery"},
+     {t:"cd", label:"Cool down to 6.4km total", sub:"Very easy"}]},
+   {id:"w5c", day:"Thu", date:"2026-07-16", name:"On Off Ks", type:"tempo", km:5.5, dur:"30m – 40m", steps:[
+     {t:"wu", label:"1km warm up", sub:"Easy jog"},
+     {t:"rep", label:"3 × (1km ON / 500m OFF)", sub:"ON at "+PACE.tempo+" · OFF easy float, no stopping"},
+     {t:"cd", label:"1km cool down", sub:"Very easy"}]},
+   {id:"w5d", day:"Sat", date:"2026-07-18", name:"10km Long Run", type:"long", km:10, dur:"1h0m – 1h10m", steps:[
+     {t:"run", label:"10km steady", sub:"Full race distance, easy effort · "+PACE.easy+" · fuel and hydrate like race day"}]},
+ ]},
+ {n:6, from:"2026-07-20", to:"2026-07-26", coach:"The work is banked — now we sharpen. Volume eases back while the 400s keep your legs quick. Sleep is training this week.", workouts:[
+   {id:"w6a", day:"Mon", date:"2026-07-20", name:"6.5km Easy Run", type:"easy", km:6.5, dur:"40m – 45m", steps:[
+     {t:"run", label:"6.5km easy", sub:PACE.easy}]},
+   {id:"w6b", day:"Wed", date:"2026-07-22", name:"400m Repeats", type:"intervals", km:5, dur:"35m – 40m", steps:[
+     {t:"wu", label:"1.5km warm up", sub:"Easy jog + strides"},
+     {t:"rep", label:"5 × 400m hard", sub:PACE.interval+" · 90s jog recovery"},
+     {t:"cd", label:"1.5km cool down", sub:"Very easy"}]},
+   {id:"w6c", day:"Thu", date:"2026-07-23", name:"6.5km Easy Run", type:"easy", km:6.5, dur:"40m – 45m", steps:[
+     {t:"run", label:"6.5km easy", sub:PACE.easy}]},
+   {id:"w6d", day:"Sat", date:"2026-07-25", name:"7km Long Run", type:"long", km:7, dur:"40m – 50m", steps:[
+     {t:"run", label:"7km steady", sub:"Last proper long run · "+PACE.easy}]},
+ ]},
+ {n:7, from:"2026-07-27", to:"2026-08-02", coach:"It's race week. The hard work is done — time to get excited. Nerves are fine; they show you care, and they'll give you that edge on Sunday morning in York.", workouts:[
+   {id:"w7a", day:"Tue", date:"2026-07-28", name:"Taper 400s", type:"taper", km:5, dur:"35m – 40m", steps:[
+     {t:"wu", label:"1.5km warm up", sub:"Easy jog"},
+     {t:"rep", label:"4 × 400m at race pace", sub:PACE.race+" · feel quick, not strained · 90s jog between"},
+     {t:"cd", label:"1.5km cool down", sub:"Very easy"}]},
+   {id:"w7b", day:"Thu", date:"2026-07-30", name:"5km Easy Run", type:"easy", km:5, dur:"30m – 35m", steps:[
+     {t:"run", label:"5km very easy", sub:"Shake out the legs, nothing more · "+PACE.easy}]},
+   {id:"w7c", day:"Sun", date:"2026-08-02", name:"10km Race · York", type:"race", km:10, dur:"54m10s – 57m30s", steps:[
+     {t:"wu", label:"10–12 min warm up", sub:"Easy jog + 3 strides, ~25 min before the gun"},
+     {t:"rep", label:"km 1–3 · settle", sub:"5:40–5:45/km — let everyone sprint past you, you'll see them later"},
+     {t:"rep", label:"km 4–7 · lock in", sub:"5:30–5:35/km — rhythm and relaxed shoulders"},
+     {t:"rep", label:"km 8–10 · empty it", sub:"Whatever's left. Sub-55 is on if the first 7k were honest"}]},
+ ]},
+];
+
+const CHECKLIST = [
+  "Bib number + safety pins collected","Kit laid out the night before (nothing new on race day)",
+  "Trainers chosen — the pair you did the 10km long run in","Breakfast planned: ~2–3h before, tried in training",
+  "Travel to York sorted + parking / start-pen time checked","Watch charged, race screen set to pace + distance",
+  "Bottle + gel/jelly babies if using them","Warm layer for the start pen","Pacing plan memorised: settle → lock in → empty it"
+];
+
+/* ---------------- storage (safe) ---------------- */
+let MEM = {};
+const store = {
+  get(k,fb){ try{ const v = localStorage.getItem("pacecraft_"+k); return v===null?fb:JSON.parse(v);}catch(e){ return (k in MEM)?MEM[k]:fb; } },
+  set(k,v){ try{ localStorage.setItem("pacecraft_"+k, JSON.stringify(v)); }catch(e){} MEM[k]=v; }
+};
+let state = {
+  done: store.get("done",{}),          // workoutId -> true
+  notes: store.get("notes",{}),        // workoutId -> string
+  moved: store.get("moved",{}),        // workoutId -> "YYYY-MM-DD"
+  activities: store.get("activities",[]), // logged runs
+  checklist: store.get("checklist",{}),
+};
+function save(){ store.set("done",state.done); store.set("notes",state.notes); store.set("moved",state.moved); store.set("activities",state.activities); store.set("checklist",state.checklist); }
+
+/* ---------------- helpers ---------------- */
+const ALL = PLAN.flatMap(w=>w.workouts.map(x=>({...x, week:w.n})));
+const byId = id => ALL.find(w=>w.id===id);
+function effDate(w){ return state.moved[w.id] || w.date; }
+function fmtD(iso){ const d=new Date(iso+"T12:00:00"); return d.toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"short"}); }
+function fmtShort(iso){ const d=new Date(iso+"T12:00:00"); return d.toLocaleDateString("en-GB",{day:"numeric",month:"short"}); }
+function dayName(iso){ return new Date(iso+"T12:00:00").toLocaleDateString("en-GB",{weekday:"short"}); }
+function todayISO(){ const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+function daysUntil(iso){ return Math.ceil((new Date(iso+"T00:00:00") - new Date(todayISO()+"T00:00:00"))/86400000); }
+function weekRange(w){ return fmtShort(w.from).toUpperCase()+" – "+fmtShort(w.to).toUpperCase(); }
+function weekKm(w){ return w.workouts.reduce((s,x)=>s+x.km,0); }
+function currentWeek(){ const t=todayISO(); for(const w of PLAN){ if(t>=w.from && t<=w.to) return w.n; } return t<PLAN[0].from?0:8; }
+function paceFrom(km,mins){ if(!km||!mins) return "–"; const p=mins/km, m=Math.floor(p), s=Math.round((p-m)*60); return m+":"+String(s).padStart(2,"0")+"/km"; }
+function esc(s){ return String(s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function toast(msg){ const t=document.getElementById("toast"); t.textContent=msg; t.classList.add("show"); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove("show"),1900); }
+
+/* ---------------- workout card ---------------- */
+function woCard(w, opts={}){
+  const done = !!state.done[w.id];
+  const T = TYPES[w.type];
+  return `<div class="wo ${done?"done":""}" onclick="openWorkout('${w.id}')">
+    <div class="stripe ${T.cls}"></div>
+    <div class="body">
+      <h3>${esc(w.name)}</h3>
+      <div class="sub">${fmtD(effDate(w))} · ${w.dur}${state.moved[w.id]?' · <span style="color:var(--volt)">moved</span>':''}</div>
+      <span class="tag">${T.label} · ${w.km}km</span>
+      ${state.notes[w.id]?'<div class="sub" style="margin-top:8px">📝 '+esc(state.notes[w.id]).slice(0,80)+'</div>':''}
+    </div>
+    <div class="right"><div class="check ${done?"on":""}" onclick="event.stopPropagation();toggleDone('${w.id}')">✓</div></div>
+  </div>`;
+}
+
+/* ================= TODAY ================= */
+function renderToday(){
+  const t = todayISO();
+  const dRace = daysUntil(RACE.date);
+  const cw = currentWeek();
+  const todays = ALL.filter(w=>effDate(w)===t);
+  const upcoming = ALL.filter(w=>effDate(w)>t && !state.done[w.id]).sort((a,b)=>effDate(a)<effDate(b)?-1:1).slice(0,2);
+  const doneCount = ALL.filter(w=>state.done[w.id]).length;
+  const kmDone = ALL.filter(w=>state.done[w.id]).reduce((s,w)=>s+w.km,0);
+  const totalKm = ALL.reduce((s,w)=>s+w.km,0);
+
+  let block;
+  if(todays.length){
+    block = `<div class="eyebrow" style="margin-top:4px">Today's session</div>` + todays.map(w=>woCard(w)).join("");
+  } else if (cw===0){
+    block = `<div class="banner"><b>Plan starts Monday 15 June.</b> First up: a 5km easy run. Until then — rest, walk Otis, maybe a gentle padel hit.</div>
+      <div class="eyebrow">First session</div>` + woCard(ALL[0]);
+  } else {
+    block = `<div class="banner"><b>Rest day.</b> No run scheduled — recovery is part of the plan. Stretch, hydrate, easy walk.</div>`;
+  }
+
+  document.getElementById("main").innerHTML = `
+  ${topbar("Pacecraft","YORK 10K BUILD")}
+  <div class="card glow hero">
+    <div class="track"></div>
+    <div class="eyebrow">${RACE.name} · ${fmtD(RACE.date)}</div>
+    <div class="count">${dRace>0?dRace:0}<span>days to go</span></div>
+    <div class="heroMeta">
+      <div class="m"><b>${RACE.estLow} – ${RACE.estHigh}</b><small>predicted finish</small></div>
+      <div class="m"><b>${kmDone.toFixed(1)} / ${totalKm.toFixed(1)} km</b><small>plan distance</small></div>
+      <div class="m"><b>${doneCount} / ${ALL.length}</b><small>sessions done</small></div>
+    </div>
+  </div>
+  ${block}
+  ${upcoming.length?`<div class="eyebrow" style="margin-top:18px">Coming up</div>`+upcoming.map(w=>woCard(w)).join(""):""}
+  <div class="card zones">
+    <div class="eyebrow">Your pace zones</div>
+    ${ZONES.map(z=>`<div class="z"><span class="dot ${z.k==="easy"?"t-easy":z.k==="tempo"?"t-tempo":z.k==="race"?"t-race":"t-intervals"}"></span>
+      <div><b>${z.name}</b><small>${z.note}</small></div><div class="pace">${z.pace}</div></div>`).join("")}
+  </div>
+  <div style="display:flex;gap:10px">
+    <button class="btn" onclick="openRunSetup('${todays.length?todays[0].id:"free"}')">🎧 &nbsp;Guided run</button>
+    <button class="btn volt" onclick="openLogSheet()">＋ &nbsp;Log a run</button>
+  </div>`;
+}
+
+function topbar(title, sub){
+  return `<div class="topbar">
+    <div class="brand"><div class="mark">P</div><div><b>${title}</b><small>${sub}</small></div></div>
+    <div class="avatar">T</div>
+  </div>`;
+}
+
+/* ================= PLAN ================= */
+function renderPlan(){
+  const cw = currentWeek();
+  document.getElementById("main").innerHTML = topbar("Your Plan","7 WEEKS · 161.8 KM") +
+  `<div class="card">
+    <div class="row"><div><div class="eyebrow">Goal race</div><b style="font-size:18px">🏁 ${RACE.name}</b><div class="muted" style="font-size:13px">${fmtD(RACE.date)} · predicted ${RACE.estLow}–${RACE.estHigh}</div></div>
+    <div style="text-align:right"><div class="eyebrow">Total</div><b style="font-size:22px">161.8<span style="font-size:13px;color:var(--muted)"> km</span></b></div></div>
+  </div>` +
+  PLAN.map(w=>{
+    const ids = w.workouts.map(x=>x.id);
+    const dn = ids.filter(id=>state.done[id]).length;
+    return `<div class="week ${w.n===cw?"current":""}">
+      <div class="dates">${weekRange(w)}${w.n===cw?' · <span style="color:var(--volt)">THIS WEEK</span>':''}</div>
+      <h2>Week ${w.n}</h2>
+      <div class="progressBar">${w.workouts.map(x=>`<i class="${state.done[x.id]?"done":""}"></i>`).join("")}</div>
+      <div class="stats">Workouts: <b>${dn}/${w.workouts.length}</b> &nbsp;·&nbsp; Distance: <b>${weekKm(w).toFixed(2)}km</b></div>
+      ${w.workouts.map(x=>`<div class="wline" onclick="openWorkout('${x.id}')">
+        <span class="dot ${TYPES[x.type].cls}"></span><span class="d">${dayName(effDate(x))}</span>
+        <span class="n ${state.done[x.id]?"done":""}">${esc(x.name)}</span><span class="km">${x.km}km</span>
+      </div>`).join("")}
+      <div class="coach"><div class="face">🏃</div><div><b style="color:var(--text);font-size:13px;display:block;margin-bottom:2px">Coach's note</b>${w.coach}</div></div>
+    </div>`;
+  }).join("");
+}
+
+/* ================= WORKOUT SHEET ================= */
+function openWorkout(id){
+  const w = byId(id); if(!w) return;
+  const T = TYPES[w.type]; const done = !!state.done[id];
+  const icon = {wu:"W", rep:"●", cd:"C", run:"▶"};
+  openSheet(`
+    <span class="tag" style="background:var(--panel2);border:1px solid var(--line);border-radius:999px;padding:4px 11px;font-size:12px;font-weight:700"><span class="dot ${T.cls}" style="vertical-align:-1px;margin-right:6px"></span>${T.label} · Week ${w.week}</span>
+    <h2 style="margin-top:10px">${esc(w.name)}</h2>
+    <div class="muted">${fmtD(effDate(w))} · ${w.dur}</div>
+    <div class="pillrow">
+      <div class="pill"><small>Distance</small><b>${w.km} km</b></div>
+      <div class="pill"><small>Duration</small><b>${w.dur}</b></div>
+      <div class="pill"><small>Status</small><b>${done?"Done ✓":"Planned"}</b></div>
+    </div>
+    <div class="eyebrow" style="margin-top:14px">Session structure</div>
+    ${w.steps.map(s=>`<div class="step"><div class="ic ${T.cls}">${icon[s.t]||"●"}</div><div><b>${esc(s.label)}</b><small>${esc(s.sub)}</small></div></div>`).join("")}
+    <label>Notes (how did it go?)</label>
+    <textarea id="noteBox" rows="3" placeholder="e.g. Felt strong, last rep at 4:58/km…">${esc(state.notes[id]||"")}</textarea>
+    <label>Move this workout</label>
+    <input type="date" id="moveDate" value="${effDate(w)}">
+    <div style="display:flex;gap:10px;margin-top:18px">
+      <button class="btn" onclick="openRunSetup('${id}')">🎧 &nbsp;Start guided run</button>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:10px">
+      <button class="btn ${done?"ghost":"volt"}" onclick="toggleDone('${id}');openWorkout('${id}')">${done?"Mark as not done":"Mark complete ✓"}</button>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:10px">
+      <button class="btn ghost" onclick="saveWorkoutEdits('${id}')">Save notes & date</button>
+      ${state.moved[id]?`<button class="btn ghost" onclick="resetMove('${id}')">Reset date</button>`:""}
+    </div>
+  `);
+}
+function saveWorkoutEdits(id){
+  const n = document.getElementById("noteBox").value.trim();
+  const d = document.getElementById("moveDate").value;
+  if(n) state.notes[id]=n; else delete state.notes[id];
+  const w = byId(id);
+  if(d && d!==w.date) state.moved[id]=d; else delete state.moved[id];
+  save(); closeSheet(); render(); toast("Saved");
+}
+function resetMove(id){ delete state.moved[id]; save(); openWorkout(id); render(); }
+function toggleDone(id){
+  state.done[id] = !state.done[id];
+  if(!state.done[id]) delete state.done[id];
+  save(); render();
+  if(state.done[id]) toast("Nice one — session logged ✓");
+}
+
+/* ================= ACTIVITIES ================= */
+function renderLog(){
+  const acts = [...state.activities].sort((a,b)=>b.date<a.date?-1:1).reverse();
+  document.getElementById("main").innerHTML = topbar("Activities","YOUR RUN LOG") +
+  `<button class="btn volt" style="margin-bottom:16px" onclick="openLogSheet()">＋ &nbsp;Log a run</button>` +
+  (acts.length? acts.map((a,i)=>`<div class="act">
+    <div class="top"><h3>${esc(a.name)}</h3><span class="when">${fmtD(a.date)}</span></div>
+    <div class="nums">
+      <div><b>${a.km}</b><small>km</small></div>
+      <div><b>${a.mins}</b><small>min</small></div>
+      <div><b>${paceFrom(a.km,a.mins)}</b><small>avg pace</small></div>
+      ${a.feel?`<div><b>${["😖","😕","🙂","😀","🔥"][a.feel-1]}</b><small>feel</small></div>`:""}
+    </div>
+    ${a.note?`<div class="muted" style="margin-top:9px;font-size:14px">${esc(a.note)}</div>`:""}
+    <div style="margin-top:10px"><button class="btn danger sm" onclick="delAct(${state.activities.indexOf(a)})">Delete</button></div>
+  </div>`).join("")
+  : `<div class="card"><div class="empty"><div class="big">👟</div><b>No runs logged yet</b><br><span style="font-size:14px">Log your first run and Pacecraft will start tracking pace trends, weekly mileage and how you're stacking up against the plan.</span></div></div>`);
+}
+function openLogSheet(){
+  openSheet(`
+    <h2>Log a run</h2>
+    <div class="muted" style="font-size:14px">Pace is calculated automatically.</div>
+    <label>Link to a planned session (optional)</label>
+    <select id="laLink"><option value="">— Just a free run —</option>
+      ${ALL.filter(w=>!state.done[w.id]).map(w=>`<option value="${w.id}">Wk${w.week} · ${esc(w.name)} (${fmtShort(effDate(w))})</option>`).join("")}
+    </select>
+    <label>Name</label><input id="laName" placeholder="Evening run along the Thames">
+    <label>Date</label><input type="date" id="laDate" value="${todayISO()}">
+    <div style="display:flex;gap:10px">
+      <div style="flex:1"><label>Distance (km)</label><input id="laKm" type="number" inputmode="decimal" step="0.1" placeholder="5.0"></div>
+      <div style="flex:1"><label>Time (minutes)</label><input id="laMin" type="number" inputmode="decimal" step="0.5" placeholder="32"></div>
+    </div>
+    <label>How did it feel?</label>
+    <div class="segTabs" id="feelRow">${[1,2,3,4,5].map(n=>`<button data-f="${n}" onclick="pickFeel(${n})">${["😖","😕","🙂","😀","🔥"][n-1]}</button>`).join("")}</div>
+    <label>Note</label><textarea id="laNote" rows="2" placeholder="Optional"></textarea>
+    <button class="btn volt" style="margin-top:16px" onclick="saveAct()">Save run</button>
+  `);
+}
+let pickedFeel = 0;
+function pickFeel(n){ pickedFeel=n; document.querySelectorAll("#feelRow button").forEach(b=>b.classList.toggle("on", +b.dataset.f===n)); }
+function saveAct(){
+  const km=parseFloat(document.getElementById("laKm").value), mins=parseFloat(document.getElementById("laMin").value);
+  if(!km||!mins){ toast("Add distance and time"); return; }
+  const link=document.getElementById("laLink").value;
+  const name=document.getElementById("laName").value.trim() || (link?byId(link).name:"Run");
+  state.activities.push({name, date:document.getElementById("laDate").value||todayISO(), km, mins, feel:pickedFeel, note:document.getElementById("laNote").value.trim(), link});
+  if(link){ state.done[link]=true; }
+  pickedFeel=0; save(); closeSheet(); render(); toast("Run saved · "+paceFrom(km,mins));
+}
+function delAct(i){ state.activities.splice(i,1); save(); render(); }
+
+/* ================= INSIGHTS ================= */
+function renderInsights(){
+  const cw = currentWeek();
+  const doneKm = ALL.filter(w=>state.done[w.id]).reduce((s,w)=>s+w.km,0);
+  const totalKm = ALL.reduce((s,w)=>s+w.km,0);
+  const pct = Math.round(100*ALL.filter(w=>state.done[w.id]).length/ALL.length);
+
+  /* weekly mileage chart */
+  const maxKm = Math.max(...PLAN.map(weekKm));
+  const W=520,H=190,pad=24,bw=(W-pad*2)/7-12;
+  let bars="";
+  PLAN.forEach((w,i)=>{
+    const planned=weekKm(w);
+    const done=w.workouts.filter(x=>state.done[x.id]).reduce((s,x)=>s+x.km,0);
+    const x=pad+i*((W-pad*2)/7)+6;
+    const hP=(planned/maxKm)*(H-58), hD=(done/maxKm)*(H-58);
+    bars+=`<rect x="${x}" y="${H-38-hP}" width="${bw}" height="${hP}" rx="6" fill="#232c40"/>`;
+    if(hD>0) bars+=`<rect x="${x}" y="${H-38-hD}" width="${bw}" height="${hD}" rx="6" fill="${w.n===cw?"#d8f34e":"#9b6bff"}"/>`;
+    bars+=`<text class="barlabel" x="${x+bw/2}" y="${H-22}" text-anchor="middle">W${w.n}</text>`;
+    bars+=`<text class="barval" x="${x+bw/2}" y="${H-38-hP-6}" text-anchor="middle">${planned.toFixed(0)}</text>`;
+  });
+
+  /* pace trend from activities */
+  const acts=[...state.activities].sort((a,b)=>a.date<b.date?-1:1);
+  let trend="";
+  if(acts.length>=2){
+    const paces=acts.map(a=>a.mins/a.km);
+    const mn=Math.min(...paces)-0.15, mx=Math.max(...paces)+0.15;
+    const pts=paces.map((p,i)=>{
+      const x=30+(i*(460/(paces.length-1)));
+      const y=20+((p-mn)/(mx-mn))*120;
+      return x+","+y;
+    });
+    trend=`<div class="card"><div class="eyebrow">Pace trend (logged runs)</div>
+      <svg class="chart" viewBox="0 0 520 170">
+        <polyline points="${pts.join(" ")}" fill="none" stroke="#d8f34e" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+        ${pts.map(p=>`<circle cx="${p.split(",")[0]}" cy="${p.split(",")[1]}" r="4.5" fill="#0b0e14" stroke="#d8f34e" stroke-width="2.5"/>`).join("")}
+      </svg>
+      <div class="row" style="font-size:13px;color:var(--muted)"><span>Latest: <b style="color:var(--text)">${paceFrom(acts[acts.length-1].km,acts[acts.length-1].mins)}</b></span><span>Best: <b style="color:var(--volt)">${(p=>{const m=Math.floor(p),s=Math.round((p-m)*60);return m+":"+String(s).padStart(2,"0")+"/km"})(Math.min(...paces))}</b></span></div>
+    </div>`;
+  }
+
+  document.getElementById("main").innerHTML = topbar("Insights","TRAINING ANALYSIS") +
+  `<div class="card glow">
+    <div class="eyebrow">Plan completion</div>
+    <div class="row"><div class="count" style="font-size:42px">${pct}<span style="color:var(--volt);font-size:18px">%</span></div>
+    <div style="text-align:right" class="muted" style="font-size:13px">${doneKm.toFixed(1)}km of ${totalKm.toFixed(1)}km<br>banked so far</div></div>
+  </div>
+  <div class="card">
+    <div class="eyebrow">Weekly mileage · planned vs done</div>
+    <svg class="chart" viewBox="0 0 520 190">${bars}</svg>
+    <div style="display:flex;gap:16px;font-size:12.5px;color:var(--muted);margin-top:4px">
+      <span><span class="dot" style="background:#232c40"></span> planned</span>
+      <span><span class="dot" style="background:#9b6bff"></span> completed</span>
+      <span><span class="dot" style="background:#d8f34e"></span> this week</span>
+    </div>
+  </div>
+  ${trend}
+  <div class="card">
+    <div class="eyebrow">How the plan is shaped</div>
+    <div class="muted" style="font-size:14.5px;line-height:1.6">
+      Classic build → recover → peak → taper. Weeks 1–2 establish rhythm, week 3 drops back on purpose, weeks 4–5 carry the heaviest load (peaking at 28.9km with a full 10km long run on 18 Jul), then weeks 6–7 sharpen and shed fatigue. The hotspot long run in week 4 teaches you to surge at race pace on tired legs — that's the session that buys you the last 3km in York.
+    </div>
+  </div>
+  <div class="card">
+    <div class="eyebrow">Session mix</div>
+    ${["easy","intervals","tempo","long"].map(t=>{
+      const n=ALL.filter(w=>w.type===t).length, km=ALL.filter(w=>w.type===t).reduce((s,w)=>s+w.km,0);
+      return `<div class="row" style="padding:8px 0;border-bottom:1px solid var(--line)"><span><span class="dot ${TYPES[t].cls}"></span> &nbsp;${TYPES[t].label}</span><span class="muted">${n} sessions · <b style="color:var(--text)">${km.toFixed(1)}km</b></span></div>`;
+    }).join("")}
+  </div>`;
+}
+
+/* ================= RACE ================= */
+function renderRace(){
+  const d=daysUntil(RACE.date);
+  const ticked=Object.values(state.checklist).filter(Boolean).length;
+  document.getElementById("main").innerHTML = topbar("Race Day","YORK 10K · 2 AUG") +
+  `<div class="card glow hero">
+    <div class="track"></div>
+    <div class="eyebrow">Sunday 2 August 2026</div>
+    <h2 style="font-size:30px">🏁 ${RACE.name}</h2>
+    <div class="heroMeta">
+      <div class="m"><b>${d>0?d+" days":"Race day!"}</b><small>to go</small></div>
+      <div class="m"><b>${RACE.estLow} – ${RACE.estHigh}</b><small>predicted finish</small></div>
+      <div class="m"><b>5:25 – 5:45</b><small>/km target band</small></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="eyebrow">Pacing strategy</div>
+    <div class="step"><div class="ic t-easy">1</div><div><b>km 1–3 · Settle</b><small>5:40–5:45/km. Controlled. Let the adrenaline crowd go.</small></div></div>
+    <div class="step"><div class="ic t-tempo">2</div><div><b>km 4–7 · Lock in</b><small>5:30–5:35/km. Rhythm, relaxed shoulders, count people you pass.</small></div></div>
+    <div class="step"><div class="ic t-race">3</div><div><b>km 8–10 · Empty it</b><small>Everything left. Sub-55 is live if the first 7k were honest.</small></div></div>
+  </div>
+  <div class="card">
+    <div class="row" style="margin-bottom:6px"><div class="eyebrow" style="margin:0">Race-week checklist</div><span class="muted" style="font-size:13px">${ticked}/${CHECKLIST.length}</span></div>
+    ${CHECKLIST.map((c,i)=>`<div class="cl ${state.checklist[i]?"on":""}" onclick="tickCL(${i})"><div class="check ${state.checklist[i]?"on":""}">✓</div><span>${c}</span></div>`).join("")}
+  </div>
+  <div class="card">
+    <div class="eyebrow">Finish-time cheat sheet</div>
+    ${[["52:30","5:15"],["54:10","5:25"],["55:00","5:30"],["56:40","5:40"],["57:30","5:45"],["60:00","6:00"]].map(r=>
+      `<div class="row" style="padding:8px 0;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums"><span class="muted">${r[1]} /km</span><b>${r[0]}</b></div>`).join("")}
+  </div>`;
+}
+function tickCL(i){ state.checklist[i]=!state.checklist[i]; if(!state.checklist[i]) delete state.checklist[i]; save(); render(); }
+
+/* ================= sheet + nav ================= */
+function openSheet(html){ document.getElementById("sheet").innerHTML='<div class="handle"></div>'+html; document.getElementById("sheetWrap").classList.add("open"); }
+function closeSheet(){ document.getElementById("sheetWrap").classList.remove("open"); }
+
+let tab="today";
+function render(){ ({today:renderToday,plan:renderPlan,log:renderLog,insights:renderInsights,race:renderRace})[tab](); }
+document.querySelectorAll("nav button").forEach(b=>b.addEventListener("click",()=>{
+  tab=b.dataset.tab;
+  document.querySelectorAll("nav button").forEach(x=>x.classList.toggle("active",x===b));
+  window.scrollTo(0,0); render();
+}));
+
+/* ================= GUIDED RUN ENGINE =================
+   GPS + voice coaching through headphones. Record in Strava
+   in parallel — this handles the pacing, Strava keeps the map. */
+
+const TARGETS = { easy:[390,425], long:[390,425], tempo:[330,345], race:[325,345], intervals:[295,315], taper:[325,345] };
+function secToPace(s){ const m=Math.floor(s/60), ss=Math.round(s%60); return m+":"+String(ss).padStart(2,"0"); }
+function paceToSec(str){ const m=String(str).trim().match(/^(\d{1,2}):(\d{2})$/); return m? (+m[1])*60+(+m[2]) : null; }
+function fmtClock(sec){ sec=Math.max(0,Math.round(sec)); const h=Math.floor(sec/3600),m=Math.floor(sec%3600/60),s=sec%60;
+  return (h?h+":":"")+String(m).padStart(h?2:1,"0")+":"+String(s).padStart(2,"0"); }
+function sayClock(sec){ sec=Math.round(sec); const m=Math.floor(sec/60), s=sec%60; return m+" minutes "+(s?s+" seconds":""); }
+function speak(text){
+  try{
+    if(!("speechSynthesis" in window)) return;
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = "en-GB"; u.rate = 1.0;
+    const v = speechSynthesis.getVoices().find(v=>v.lang==="en-GB");
+    if(v) u.voice = v;
+    speechSynthesis.speak(u);
+  }catch(e){}
+}
+function sayPace(sec){ const m=Math.floor(sec/60), s=Math.round(sec%60); return s===0? (m+" minutes per kilometre") : (m+" "+String(s).padStart(2,"0")+" per kilometre"); }
+
+function openRunSetup(id){
+  const w = id==="free"? null : byId(id);
+  const type = w? w.type : "easy";
+  const band = TARGETS[type] || TARGETS.easy;
+  const defMode = (type==="intervals"||type==="taper") ? "splits" : "coach";
+  openSheet(`
+    <h2>🎧 Guided run</h2>
+    <div class="muted" style="font-size:14px">${w?esc(w.name)+" · "+w.km+"km":"Free run"} — voice cues through your headphones. Start your Strava recording first, then come back and hit go.</div>
+    <div style="display:flex;gap:10px">
+      <div style="flex:1"><label>Target pace from</label><input id="grMin" value="${secToPace(band[0])}" placeholder="5:30"></div>
+      <div style="flex:1"><label>to (per km)</label><input id="grMax" value="${secToPace(band[1])}" placeholder="5:45"></div>
+    </div>
+    <label>Coaching style</label>
+    <select id="grMode">
+      <option value="coach" ${defMode==="coach"?"selected":""}>Coach me — tell me to speed up / ease off</option>
+      <option value="splits" ${defMode==="splits"?"selected":""}>Splits only — just announce each km</option>
+    </select>
+    ${(type==="intervals"||type==="taper")?'<div class="coach" style="margin-top:12px"><div class="face">💡</div><div>For interval sessions, "splits only" works best — pace cues would nag you during recovery jogs. Run the reps on feel using your announced splits.</div></div>':""}
+    <label>Cue frequency</label>
+    <select id="grFreq"><option value="45">Every 45 seconds</option><option value="60" selected>Every minute</option><option value="120">Every 2 minutes</option></select>
+    <button class="btn volt" style="margin-top:18px" onclick="startRun('${id}')">Start run ▶</button>
+    <div class="faint" style="font-size:12.5px;margin-top:12px;line-height:1.5">Keep the screen on with the phone in a pocket or armband — browsers pause GPS when the screen locks. Pacecraft will try to keep it awake for you. If no location prompt appears, your browser is blocking GPS for local files and the run switches to voice-timer mode automatically.</div>
+  `);
+}
+
+const RUN = { active:false, paused:false, watchId:null, timer:null, wakeLock:null,
+  woId:null, mode:"coach", band:[390,425], freq:60,
+  startT:0, pausedAt:0, pausedTotal:0, dist:0, lastFix:null, buf:[], splits:[], nextKm:1,
+  lastCue:0, gpsOk:false, gpsEver:false };
+
+function startRun(id){
+  const mn=paceToSec(document.getElementById("grMin").value), mx=paceToSec(document.getElementById("grMax").value);
+  RUN.band = (mn&&mx)? [Math.min(mn,mx),Math.max(mn,mx)] : (TARGETS[(id!=="free"&&byId(id))?byId(id).type:"easy"]||TARGETS.easy);
+  RUN.mode = document.getElementById("grMode").value;
+  RUN.freq = +document.getElementById("grFreq").value;
+  RUN.woId = id==="free"? null : id;
+  RUN.active=true; RUN.paused=false; RUN.dist=0; RUN.lastFix=null; RUN.buf=[]; RUN.splits=[]; RUN.nextKm=1;
+  RUN.startT=Date.now(); RUN.pausedTotal=0; RUN.lastCue=0; RUN.gpsOk=false; RUN.gpsEver=false;
+  closeSheet(); buildRunScreen();
+  requestWake();
+  if(navigator.geolocation){
+    RUN.watchId = navigator.geolocation.watchPosition(onFix, ()=>{ RUN.gpsOk=false; updateGpsDot(); },
+      {enableHighAccuracy:true, maximumAge:1000, timeout:8000});
+  }
+  RUN.timer = setInterval(runTick, 1000);
+  const w = RUN.woId? byId(RUN.woId) : null;
+  speak(`Starting ${w? w.name : "free run"}. Target pace ${sayPace(RUN.band[0])} to ${sayPace(RUN.band[1])}. Off you go, Tom.`);
+}
+function requestWake(){ try{ if(navigator.wakeLock) navigator.wakeLock.request("screen").then(l=>RUN.wakeLock=l).catch(()=>{}); }catch(e){} }
+document.addEventListener("visibilitychange",()=>{ if(!document.hidden && RUN.active) requestWake(); });
+
+function buildRunScreen(){
+  let el = document.getElementById("runScreen");
+  if(!el){ el = document.createElement("div"); el.id="runScreen"; document.body.appendChild(el); }
+  const w = RUN.woId? byId(RUN.woId) : null;
+  el.innerHTML = `
+    <div class="runHead">
+      <div class="name">${w?esc(w.name):"Free run"}<small>target ${secToPace(RUN.band[0])} – ${secToPace(RUN.band[1])} /km</small></div>
+      <div class="gpsDot" id="gpsDot"><i></i><span id="gpsTxt">finding GPS…</span></div>
+    </div>
+    <div class="bigDist">
+      <div class="km"><span id="rKm">0.00</span><span> km</span></div>
+      <div class="clock" id="rClock">0:00</div>
+      <div class="paceState" id="rState">warming up GPS</div>
+    </div>
+    <div class="runGrid">
+      <div class="cell"><b id="rCur">–:––</b><small>current /km</small></div>
+      <div class="cell"><b id="rAvg">–:––</b><small>avg /km</small></div>
+      <div class="cell"><b id="rLast">–:––</b><small>last km</small></div>
+    </div>
+    <div class="splitList" id="rSplits"></div>
+    <div class="runBtns">
+      <button class="btn ghost" onclick="toggleBlackout(true)">Blackout</button>
+      <button class="btn ghost" id="rPause" onclick="pauseRun()">Pause</button>
+      <button class="btn volt" onclick="finishRun()">Finish</button>
+    </div>`;
+  el.classList.add("open");
+  let bo = document.getElementById("blackout");
+  if(!bo){ bo = document.createElement("div"); bo.id="blackout"; bo.innerHTML="<span>tap to view</span>";
+    bo.addEventListener("click",()=>toggleBlackout(false)); document.body.appendChild(bo); }
+  updateGpsDot();
+}
+function updateGpsDot(){
+  const d=document.getElementById("gpsDot"), t=document.getElementById("gpsTxt");
+  if(!d||!t) return;
+  d.className = "gpsDot " + (RUN.gpsOk?"ok":(RUN.gpsEver?"bad":""));
+  t.textContent = RUN.gpsOk? "GPS locked" : (RUN.gpsEver? "GPS weak" : "voice-timer mode");
+}
+function hav(a,b){
+  const R=6371000, dLa=(b.lat-a.lat)*Math.PI/180, dLo=(b.lon-a.lon)*Math.PI/180;
+  const la1=a.lat*Math.PI/180, la2=b.lat*Math.PI/180;
+  const x=Math.sin(dLa/2)**2+Math.cos(la1)*Math.cos(la2)*Math.sin(dLo/2)**2;
+  return 2*R*Math.asin(Math.sqrt(x));
+}
+function onFix(pos){
+  if(!RUN.active||RUN.paused) return;
+  const c=pos.coords;
+  if(c.accuracy>30) return;
+  RUN.gpsOk=true; RUN.gpsEver=true; updateGpsDot();
+  const fix={lat:c.latitude, lon:c.longitude, t:(pos.timestamp||Date.now())};
+  if(RUN.lastFix){
+    const d=hav(RUN.lastFix,fix), dt=(fix.t-RUN.lastFix.t)/1000;
+    if(dt>0 && d/dt<7.5 && d>1) RUN.dist+=d;
+  }
+  RUN.lastFix=fix;
+  RUN.buf.push({t:fix.t, d:RUN.dist});
+  while(RUN.buf.length && fix.t-RUN.buf[0].t>50000) RUN.buf.shift();
+}
+function elapsed(){ return (Date.now()-RUN.startT-RUN.pausedTotal)/1000; }
+function rollingPace(){
+  if(RUN.buf.length<2) return null;
+  const a=RUN.buf[0], b=RUN.buf[RUN.buf.length-1];
+  const d=b.d-a.d, t=(b.t-a.t)/1000;
+  if(d<15) return null;
+  return t/(d/1000);
+}
+function runTick(){
+  if(!RUN.active||RUN.paused) return;
+  const t=elapsed(), km=RUN.dist/1000;
+  const set=(id,v)=>{const e=document.getElementById(id); if(e) e.textContent=v;};
+  set("rKm", km.toFixed(2)); set("rClock", fmtClock(t));
+  const rp=rollingPace(), avg=km>0.05? t/km : null;
+  set("rCur", rp? secToPace(rp):"–:––"); set("rAvg", avg? secToPace(avg):"–:––");
+  const st=document.getElementById("rState");
+
+  /* km split crossing */
+  if(km>=RUN.nextKm){
+    const prev=RUN.splits.reduce((s,x)=>s+x,0);
+    const split=t-prev; RUN.splits.push(split);
+    set("rLast", secToPace(split));
+    const sl=document.getElementById("rSplits");
+    if(sl) sl.innerHTML = `<div class="row"><span>Km ${RUN.nextKm}</span><b>${secToPace(split)}</b></div>`+sl.innerHTML;
+    speak(`Kilometre ${RUN.nextKm}. ${sayPace(split)}.` + (RUN.mode==="coach"? coachWord(split) : ""));
+    RUN.nextKm++; RUN.lastCue=t;
+    return;
+  }
+
+  /* periodic cue */
+  if(t-RUN.lastCue>=RUN.freq && t>20){
+    RUN.lastCue=t;
+    if(RUN.gpsOk && rp){
+      if(st){ st.className="paceState "+(rp<RUN.band[0]-8?"fast":rp>RUN.band[1]+8?"slow":"on");
+              st.textContent= rp<RUN.band[0]-8?"a touch quick":rp>RUN.band[1]+8?"pick it up":"on pace"; }
+      if(RUN.mode==="coach"){
+        if(rp>RUN.band[1]+8) speak(`Pick it up a touch. Currently ${sayPace(rp)}.`);
+        else if(rp<RUN.band[0]-8) speak(`Ease off slightly. Currently ${sayPace(rp)}.`);
+        else speak(`On pace. ${sayPace(rp)}.`);
+      }
+    } else if(!RUN.gpsEver){
+      const mid=(RUN.band[0]+RUN.band[1])/2, shouldKm=t/mid;
+      if(st){ st.className="paceState"; st.textContent="voice-timer mode"; }
+      speak(`${sayClock(t)} elapsed. On target pace you'd be at ${shouldKm.toFixed(1)} kilometres.`);
+    }
+  }
+}
+function coachWord(split){
+  if(split>RUN.band[1]+10) return " A little behind target. Pick it up gently.";
+  if(split<RUN.band[0]-10) return " Quicker than target. Save it for the finish.";
+  return " Bang on target.";
+}
+function toggleBlackout(on){
+  const bo=document.getElementById("blackout");
+  if(bo) bo.classList.toggle("open", !!on);
+  if(on) requestWake();
+}
+function pauseRun(){
+  if(!RUN.paused){ RUN.paused=true; RUN.pausedAt=Date.now(); document.getElementById("rPause").textContent="Resume"; speak("Paused."); }
+  else { RUN.pausedTotal+=Date.now()-RUN.pausedAt; RUN.paused=false; RUN.lastFix=null; RUN.buf=[]; document.getElementById("rPause").textContent="Pause"; speak("Resuming."); }
+}
+function finishRun(){
+  if(!RUN.active) return;
+  const t=elapsed(), km=RUN.dist/1000;
+  RUN.active=false;
+  if(RUN.watchId!==null && navigator.geolocation) navigator.geolocation.clearWatch(RUN.watchId);
+  clearInterval(RUN.timer);
+  try{ if(RUN.wakeLock) RUN.wakeLock.release(); }catch(e){}
+  const rs=document.getElementById("runScreen"); if(rs) rs.classList.remove("open");
+  toggleBlackout(false);
+  const w = RUN.woId? byId(RUN.woId):null;
+  if(km>=0.2){
+    const mins=+(t/60).toFixed(1), kmR=+km.toFixed(2);
+    state.activities.push({name:(w?w.name:"Guided run"), date:todayISO(), km:kmR, mins, feel:0,
+      note:"Guided run · "+RUN.splits.map((s,i)=>"km"+(i+1)+" "+secToPace(s)).join(", "), link:RUN.woId||""});
+    if(RUN.woId) state.done[RUN.woId]=true;
+    save();
+    speak(`Run complete. ${km.toFixed(2)} kilometres in ${sayClock(t)}. Average ${sayPace(t/km)}. Well done, Tom.`);
+    toast("Run saved · "+paceFrom(kmR,mins));
+  } else {
+    speak("Run ended.");
+  }
+  render();
+}
+
+render();
+</script>
+</body>
+</html>
