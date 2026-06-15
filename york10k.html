@@ -237,6 +237,15 @@ label{display:block;font-size:12px;font-weight:700;letter-spacing:.08em;text-tra
   <div class="sheet" id="sheet"></div>
 </div>
 <div class="toast" id="toast"></div>
+<div class="sheetWrap" id="confirmWrap" style="z-index:120">
+  <div class="scrim" onclick="confirmNo()"></div>
+  <div style="position:absolute;left:0;right:0;bottom:0;max-width:560px;margin:0 auto;background:var(--panel);border-radius:24px 24px 0 0;border:1px solid var(--line);border-bottom:none;padding:22px 20px calc(26px + var(--safe-b))">
+    <div class="handle"></div>
+    <div id="confirmMsg" style="font-size:16px;line-height:1.5;margin-bottom:18px"></div>
+    <button class="btn volt" id="confirmYes">Confirm</button>
+    <button class="btn ghost" style="margin-top:10px" onclick="confirmNo()">Cancel</button>
+  </div>
+</div>
 
 <script>
 /* =========================================================
@@ -244,15 +253,17 @@ label{display:block;font-size:12px;font-weight:700;letter-spacing:.08em;text-tra
    Plan data transcribed from Tom's coached 7-week schedule.
    ========================================================= */
 
-const RACE = { name:"York 10K", date:"2026-08-02", estLow:"54:10", estHigh:"57:30" };
+const DEFAULT_RACE = { name:"York 10K", date:"2026-08-02", estLow:"54:10", estHigh:"57:30" };
+let RACE = DEFAULT_RACE;
 
 /* Pace zones derived from a 54:10–57:30 10K estimate (midpoint ≈ 55:50 → ~5:35/km race pace) */
-const ZONES = [
+const DEFAULT_ZONES = [
   {k:"easy",  name:"Easy / Long",  pace:"6:30 – 7:05 /km", note:"Conversational. Most of your week lives here."},
   {k:"tempo", name:"Tempo",        pace:"5:30 – 5:45 /km", note:"Comfortably hard — controlled effort, ~30–40 min sustainable."},
   {k:"race",  name:"10K race pace",pace:"5:25 – 5:45 /km", note:"Your target band for 2 Aug."},
   {k:"int",   name:"Intervals",    pace:"4:55 – 5:15 /km", note:"5K effort and quicker. Short reps, full focus."},
 ];
+let ZONES = DEFAULT_ZONES;
 const PACE = { easy:"6:30–7:05/km", tempo:"5:30–5:45/km", race:"5:25–5:45/km", interval:"4:55–5:15/km", recovery:"very easy jog / walk" };
 
 /* type -> stripe class + label */
@@ -266,7 +277,7 @@ const TYPES = {
 };
 
 /* Full plan — every workout from the schedule, with session structures and target paces */
-const PLAN = [
+const DEFAULT_PLAN = [
  {n:1, from:"2026-06-15", to:"2026-06-21", coach:"Welcome to week one. The goal here is rhythm, not heroics — lock in the habit of four runs and keep the easy days genuinely easy.", workouts:[
    {id:"w1a", day:"Mon", date:"2026-06-15", name:"5km Easy Run", type:"easy", km:5, dur:"30m – 35m", steps:[
      {t:"run", label:"5km easy", sub:"Relaxed, conversational pace · "+PACE.easy}]},
@@ -382,11 +393,143 @@ let state = {
   moved: store.get("moved",{}),        // workoutId -> "YYYY-MM-DD"
   activities: store.get("activities",[]), // logged runs
   checklist: store.get("checklist",{}),
+  shoes: store.get("shoes",[]),
+  customPlan: store.get("customPlan", null),
 };
-function save(){ store.set("done",state.done); store.set("notes",state.notes); store.set("moved",state.moved); store.set("activities",state.activities); store.set("checklist",state.checklist); }
+function save(){ store.set("done",state.done); store.set("notes",state.notes); store.set("moved",state.moved); store.set("activities",state.activities); store.set("checklist",state.checklist); store.set("shoes",state.shoes); store.set("customPlan",state.customPlan); store.set("lastSave",Date.now()); }
 
 /* ---------------- helpers ---------------- */
-const ALL = PLAN.flatMap(w=>w.workouts.map(x=>({...x, week:w.n})));
+let PLAN = DEFAULT_PLAN;
+let ALL = PLAN.flatMap(w=>w.workouts.map(x=>({...x, week:w.n})));
+function rebuildALL(){ ALL = PLAN.flatMap(w=>w.workouts.map(x=>({...x, week:w.n}))); }
+
+/* ============================================================
+   PLAN GENERATOR
+   A transparent, science-based builder following the same
+   principles Tom's coached plan is built on — NOT Runna's
+   proprietary algorithm. Rules: ~80/20 easy:hard, progressive
+   overload (~8–12%/wk), a recovery week every 3rd week, the
+   long run peaking ~2 weeks out, then a taper into race day.
+   ============================================================ */
+const GOALS = {
+  "5k":   {label:"5K",        km:5,    peakLong:8,  startLong:3 },
+  "10k":  {label:"10K",       km:10,   peakLong:10, startLong:4 },
+  "half": {label:"Half (21.1K)", km:21.1, peakLong:18, startLong:7 },
+};
+const INT_NAMES = ["400m Repeats","Pyramid Intervals","Mile Repeats","1km Repeats","Cruise Intervals","On-Off Kilometres","Threshold 800s","Ladder Reps","Short Sprints","600m Repeats"];
+const TEMPO_NAMES = ["Progressive Run","Steady Tempo","Rolling Tempo","Sustained Effort","Build Tempo"];
+
+function paceBand(mid, lo, hi){ return secToPace(mid+lo)+" – "+secToPace(mid+hi)+" /km"; }
+function mondayOf(iso){ const d=new Date(iso+"T12:00:00"); const day=(d.getDay()+6)%7; d.setDate(d.getDate()-day); return d; }
+function addDays(d,n){ const x=new Date(d); x.setDate(x.getDate()+n); return x; }
+function isoOf(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+
+function generatePlan(opts){
+  const g = GOALS[opts.goal];
+  const rp = opts.racePaceSec;                 // target race pace, sec/km
+  const rpw = opts.runsPerWeek;                // 3 or 4
+  const raceDate = opts.raceDate;
+  // pace bands as offsets from race pace (mirrors Tom's plan relationships)
+  const easyLo=rp+55, easyHi=rp+90, tempoLo=rp-5, tempoHi=rp+12, intLo=rp-40, intHi=rp-18;
+  const PB = { easy:secToPace(easyLo)+"–"+secToPace(easyHi)+"/km",
+               tempo:secToPace(tempoLo)+"–"+secToPace(tempoHi)+"/km",
+               race:secToPace(rp-10)+"–"+secToPace(rp+10)+"/km",
+               interval:secToPace(intLo)+"–"+secToPace(intHi)+"/km" };
+  // weeks available
+  const raceMon = mondayOf(raceDate);
+  const startMon = addDays(raceMon, -(opts.weeks-1)*7);
+  const W = opts.weeks, peakWeek = Math.max(2, W-2);
+
+  function durFor(km, midSec){ const m=km*midSec/60; return Math.round(m*0.85)+"m – "+Math.round(m*1.05)+"m"; }
+  function longFor(w){
+    if(w===W) return g.km;                          // race
+    if(w===W-1) return +(g.peakLong*0.6).toFixed(1); // taper
+    let base = g.startLong + (g.peakLong-g.startLong)*((w-1)/(peakWeek-1));
+    base = Math.min(base, g.peakLong);
+    if(w%3===0 && w<W-1) base*=0.7;                 // recovery week
+    return +base.toFixed(1);
+  }
+  const weeks=[];
+  for(let w=1; w<=W; w++){
+    const mon = addDays(startMon,(w-1)*7);
+    const isRace=(w===W), isTaper=(w>=W-1), isDown=(w%3===0 && !isTaper);
+    const long = longFor(w);
+    const easyKm = Math.max(3, +(long*0.62).toFixed(1));
+    const easy2  = Math.max(3, +(long*0.55).toFixed(1));
+    const intKm  = Math.max(3, +(long*0.62).toFixed(1));
+    const tempoKm= Math.max(3, +(long*0.55).toFixed(1));
+    const mid=(t)=>({easy:(easyLo+easyHi)/2, long:(easyLo+easyHi)/2, tempo:(tempoLo+tempoHi)/2, intervals:(intLo+intHi)/2, taper:(intLo+intHi)/2, race:rp}[t]);
+    const wo=[];
+    const mk=(off,name,type,km,steps)=>({ id:"gw"+w+"-"+off, day:["Mon","Tue","Wed","Thu","Fri","Sat","Sun"][off],
+        date:isoOf(addDays(mon,off)), name, type, km:+km.toFixed(1), dur:durFor(km,mid(type)), steps });
+
+    if(isRace){
+      wo.push(mk(1, "Taper Intervals", "taper", Math.max(3,g.km*0.5), [
+        {t:"wu",label:"1.5km warm up",sub:"Easy jog"},
+        {t:"rep",label:"4 × 400m at race pace",sub:PB.race+" · feel quick, not strained · 90s jog"},
+        {t:"cd",label:"1.5km cool down",sub:"Very easy"}]));
+      wo.push(mk(3, "Shake-out Easy Run", "easy", Math.max(3,g.km*0.5), [
+        {t:"run",label:"Easy shake-out",sub:"Loosen the legs, nothing more · "+PB.easy}]));
+      // place race on its real weekday
+      const off=(new Date(raceDate+"T12:00:00").getDay()+6)%7;
+      wo.push({ id:"gw"+w+"-race", day:["Mon","Tue","Wed","Thu","Fri","Sat","Sun"][off], date:raceDate,
+        name:g.label+" Race", type:"race", km:g.km, dur:secToPace(rp-3)+"/km target",
+        steps:[
+          {t:"wu",label:"10–12 min warm up",sub:"Easy jog + 3 strides ~25 min before the gun"},
+          {t:"rep",label:"First third · settle",sub:secToPace(rp+8)+"/km — controlled, let the crowd go"},
+          {t:"rep",label:"Middle · lock in",sub:secToPace(rp)+"/km — rhythm, relaxed shoulders"},
+          {t:"rep",label:"Final third · empty it",sub:"Everything left. Trust the training."}]});
+    } else {
+      wo.push(mk(0, easyKm.toFixed(1).replace(/\.0$/,'')+"km Easy Run", "easy", easyKm,
+        [{t:"run",label:easyKm+"km easy",sub:"Relaxed, conversational · "+PB.easy}]));
+      wo.push(mk(rpw>=4?1:1, INT_NAMES[(w-1)%INT_NAMES.length], "intervals", intKm, [
+        {t:"wu",label:"1.5km warm up",sub:"Easy jog + 3 strides"},
+        {t:"rep",label:isDown?"Reduced rep set":"Main interval set",sub:PB.interval+" · jog recovery between reps"},
+        {t:"cd",label:"Cool down to "+intKm+"km total",sub:"Very easy"}]));
+      if(rpw>=4){
+        if(w%2===0) wo.push(mk(3, easy2.toFixed(1).replace(/\.0$/,'')+"km Easy Run","easy",easy2,
+          [{t:"run",label:easy2+"km easy",sub:"Recovery focus · "+PB.easy}]));
+        else wo.push(mk(3, TEMPO_NAMES[(w-1)%TEMPO_NAMES.length],"tempo",tempoKm,[
+          {t:"wu",label:"1km warm up",sub:PB.easy},
+          {t:"rep",label:"Tempo block",sub:"Hold "+PB.tempo+" smoothly"},
+          {t:"cd",label:"Jog to "+tempoKm+"km total",sub:"Very easy"}]));
+      }
+      wo.push(mk(5, long.toFixed(1).replace(/\.0$/,'')+"km Long Run", "long", long,
+        [{t:"run",label:long+"km steady",sub:(w>=peakWeek?"Practise lifting to race pace late on tired legs · ":"Easy long-run effort · ")+PB.easy}]));
+    }
+    const phase = isRace?"Race week — the hard work is done. Trust your training, settle early, finish strong."
+      : isTaper?"Taper time. Volume drops so fatigue clears and the legs come alive. Resist adding extra."
+      : isDown?"Recovery week — distance eases on purpose so you absorb the load. Don't add miles."
+      : w>=peakWeek?"Peak load. The biggest, most specific work of the block. Sleep and fuel are training too."
+      : "Building phase — progressive overload with the bulk of running kept genuinely easy.";
+    weeks.push({ n:w, from:isoOf(mon), to:isoOf(addDays(mon,6)), coach:phase, workouts:wo });
+  }
+  const totalKm = weeks.reduce((s,w)=>s+w.workouts.reduce((a,x)=>a+x.km,0),0);
+  const finishLow = Math.round((rp-5)*g.km), finishHigh = Math.round((rp+12)*g.km);
+  const fmtFin = s=>{ const m=Math.floor(s/60), ss=s%60; return m+":"+String(ss).padStart(2,"0"); };
+  const zones=[
+    {k:"easy",name:"Easy / Long",pace:secToPace(easyLo)+" – "+secToPace(easyHi)+" /km",note:"Conversational. Most of your week lives here."},
+    {k:"tempo",name:"Tempo",pace:secToPace(tempoLo)+" – "+secToPace(tempoHi)+" /km",note:"Comfortably hard, sustainable for 20–40 min."},
+    {k:"race",name:g.label+" race pace",pace:secToPace(rp-10)+" – "+secToPace(rp+10)+" /km",note:"Your target band on race day."},
+    {k:"int",name:"Intervals",pace:secToPace(intLo)+" – "+secToPace(intHi)+" /km",note:"5K effort and quicker. Short reps, full focus."},
+  ];
+  return {
+    race:{ name:opts.name||(g.label+" Race"), date:raceDate, estLow:fmtFin(finishLow), estHigh:fmtFin(finishHigh) },
+    weeks, zones, totalKm:+totalKm.toFixed(1), goal:opts.goal, racePaceSec:rp
+  };
+}
+
+function applyPlan(p){
+  PLAN = p.weeks; RACE = p.race; ZONES = p.zones || DEFAULT_ZONES; rebuildALL();
+}
+if(state.customPlan){ try{ applyPlan(state.customPlan); }catch(e){ state.customPlan=null; } }
+
+function useDefaultPlan(){
+  uiConfirm("Switch back to your York 10K plan? Your logged runs are kept.", ()=>{
+    state.customPlan=null; save(); PLAN=DEFAULT_PLAN; RACE=DEFAULT_RACE; ZONES=DEFAULT_ZONES; rebuildALL();
+    tab="plan"; closeSheet(); render(); toast("York 10K plan restored");
+  });
+}
 const byId = id => ALL.find(w=>w.id===id);
 function effDate(w){ return state.moved[w.id] || w.date; }
 function fmtD(iso){ const d=new Date(iso+"T12:00:00"); return d.toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"short"}); }
@@ -463,22 +606,26 @@ function renderToday(){
   </div>`;
 }
 
-const APP_VER = "1.4";
+const APP_VER = "1.7";
 function topbar(title, sub){
   return `<div class="topbar">
     <div class="brand"><div class="mark">P</div><div><b>${title}</b><small>${sub} · v${APP_VER}</small></div></div>
-    <div class="avatar">T</div>
+    <div class="avatar" onclick="openProfile()">T</div>
   </div>`;
 }
 
 /* ================= PLAN ================= */
 function renderPlan(){
   const cw = currentWeek();
-  document.getElementById("main").innerHTML = topbar("Your Plan","7 WEEKS · 161.8 KM") +
-  `<div class="card">
-    <div class="row"><div><div class="eyebrow">Goal race</div><b style="font-size:18px">🏁 ${RACE.name}</b><div class="muted" style="font-size:13px">${fmtD(RACE.date)} · predicted ${RACE.estLow}–${RACE.estHigh}</div></div>
-    <div style="text-align:right"><div class="eyebrow">Total</div><b style="font-size:22px">161.8<span style="font-size:13px;color:var(--muted)"> km</span></b></div></div>
-  </div>` +
+  const totalKm = PLAN.reduce((s,w)=>s+weekKm(w),0);
+  const isCustom = !!state.customPlan;
+  document.getElementById("main").innerHTML = topbar("Your Plan", PLAN.length+" WEEKS · "+totalKm.toFixed(1)+" KM") +
+  `${isCustom?`<div class="banner"><b>Custom plan active.</b> Built for ${esc(RACE.name)}. <span onclick="useDefaultPlan()" style="color:var(--volt);text-decoration:underline;cursor:pointer">Restore York 10K plan</span></div>`:""}
+  <div class="card">
+    <div class="row"><div><div class="eyebrow">Goal race</div><b style="font-size:18px">🏁 ${esc(RACE.name)}</b><div class="muted" style="font-size:13px">${fmtD(RACE.date)} · predicted ${RACE.estLow}–${RACE.estHigh}</div></div>
+    <div style="text-align:right"><div class="eyebrow">Total</div><b style="font-size:22px">${totalKm.toFixed(1)}<span style="font-size:13px;color:var(--muted)"> km</span></b></div></div>
+  </div>
+  <button class="btn ghost" style="margin-bottom:14px" onclick="openPlanCreator()">＋ &nbsp;Create a new plan</button>` +
   PLAN.map(w=>{
     const ids = w.workouts.map(x=>x.id);
     const dn = ids.filter(id=>state.done[id]).length;
@@ -547,57 +694,75 @@ function toggleDone(id){
 /* ================= ACTIVITIES ================= */
 function renderLog(){
   const acts = [...state.activities].sort((a,b)=>b.date<a.date?-1:1).reverse();
-  document.getElementById("main").innerHTML = topbar("Activities","YOUR RUN LOG") +
-  `<button class="btn volt" style="margin-bottom:16px" onclick="openLogSheet()">＋ &nbsp;Log a run</button>` +
-  (acts.length? acts.map((a,i)=>`<div class="act">
-    <div class="top"><h3>${esc(a.name)}</h3><span class="when">${fmtD(a.date)}</span></div>
-    <div class="nums">
-      <div><b>${a.km}</b><small>km</small></div>
-      <div><b>${a.mins}</b><small>min</small></div>
-      <div><b>${paceFrom(a.km,a.mins)}</b><small>avg pace</small></div>
-      ${a.feel?`<div><b>${["😖","😕","🙂","😀","🔥"][a.feel-1]}</b><small>feel</small></div>`:""}
-    </div>
+  const tIcon={run:"🏃",strength:"💪",cross:"🚴"};
+  document.getElementById("main").innerHTML = topbar("Activities","YOUR LOG") +
+  `<button class="btn volt" style="margin-bottom:16px" onclick="openLogSheet()">＋ &nbsp;Log an activity</button>` +
+  (acts.length? acts.map((a)=>{const i=state.activities.indexOf(a); const isRun=(a.atype||"run")==="run"; const sh=a.shoe?state.shoes.find(s=>s.id===a.shoe):null; return `<div class="act">
+    <div class="top"><h3>${tIcon[a.atype||"run"]||"🏃"} ${esc(a.name)}</h3><span class="when">${fmtD(a.date)}</span></div>
+    ${(a.km||a.mins)?`<div class="nums">
+      ${a.km?`<div><b>${a.km}</b><small>km</small></div>`:""}
+      ${a.mins?`<div><b>${a.mins}</b><small>min</small></div>`:""}
+      ${isRun&&a.km&&a.mins?`<div><b>${paceFrom(a.km,a.mins)}</b><small>avg pace</small></div>`:""}
+      ${a.feel?`<div><b>${["😖","😕","🙂","😀","🔥"][a.feel-1]}</b><small>effort</small></div>`:""}
+    </div>`:""}
+    ${sh?`<div class="muted" style="margin-top:8px;font-size:13px">👟 ${esc(sh.name)}</div>`:""}
     ${a.note?`<div class="muted" style="margin-top:9px;font-size:14px">${esc(a.note)}</div>`:""}
     <div class="actbtns">
-      ${a.track&&a.track.length>1?`<button class="btn ghost sm" onclick="showRoute(${state.activities.indexOf(a)})">🗺 Route</button>
-      <button class="btn ghost sm" onclick="exportGPX(${state.activities.indexOf(a)})">Export GPX → Strava</button>`:""}
-      <button class="btn danger sm" onclick="delAct(${state.activities.indexOf(a)})">Delete</button>
+      ${a.track&&a.track.length>1?`<button class="btn ghost sm" onclick="showRoute(${i})">🗺 Route</button>
+      <button class="btn ghost sm" onclick="exportGPX(${i})">Export GPX</button>`:""}
+      <button class="btn ghost sm" onclick="openLogSheet(${i})">Edit</button>
+      <button class="btn danger sm" onclick="delAct(${i})">Delete</button>
     </div>
-  </div>`).join("")
-  : `<div class="card"><div class="empty"><div class="big">👟</div><b>No runs logged yet</b><br><span style="font-size:14px">Log your first run and Pacecraft will start tracking pace trends, weekly mileage and how you're stacking up against the plan.</span></div></div>`);
+  </div>`}).join("")
+  : `<div class="card"><div class="empty"><div class="big">👟</div><b>No activities logged yet</b><br><span style="font-size:14px">Log a run manually or start a guided run — Pacecraft tracks pace trends, weekly mileage, personal bests and how you're stacking up against the plan.</span></div></div>`);
 }
-function openLogSheet(){
+function openLogSheet(editIdx){
+  const ed = (editIdx!=null) ? state.activities[editIdx] : null;
+  const shoeOpts = state.shoes.map(s=>`<option value="${s.id}" ${ed&&ed.shoe===s.id?"selected":""}>${esc(s.name)} (${shoeKm(s.id).toFixed(0)}km)</option>`).join("");
   openSheet(`
-    <h2>Log a run</h2>
-    <div class="muted" style="font-size:14px">Pace is calculated automatically.</div>
-    <label>Link to a planned session (optional)</label>
-    <select id="laLink"><option value="">— Just a free run —</option>
-      ${ALL.filter(w=>!state.done[w.id]).map(w=>`<option value="${w.id}">Wk${w.week} · ${esc(w.name)} (${fmtShort(effDate(w))})</option>`).join("")}
-    </select>
-    <label>Name</label><input id="laName" placeholder="Evening run along the Thames">
-    <label>Date</label><input type="date" id="laDate" value="${todayISO()}">
-    <div style="display:flex;gap:10px">
-      <div style="flex:1"><label>Distance (km)</label><input id="laKm" type="number" inputmode="decimal" step="0.1" placeholder="5.0"></div>
-      <div style="flex:1"><label>Time (minutes)</label><input id="laMin" type="number" inputmode="decimal" step="0.5" placeholder="32"></div>
+    <h2>${ed?"Edit activity":"Log an activity"}</h2>
+    <div class="muted" style="font-size:14px">Pace is calculated automatically. Everything saves on your phone.</div>
+    <label>Type</label>
+    <div class="segTabs" id="typeRow">
+      ${[["run","🏃 Run"],["strength","💪 Strength"],["cross","🚴 Cross-train"]].map(t=>`<button data-t="${t[0]}" onclick="pickType('${t[0]}')" class="${(ed?ed.atype||'run':'run')===t[0]?'on':''}">${t[1]}</button>`).join("")}
     </div>
-    <label>How did it feel?</label>
-    <div class="segTabs" id="feelRow">${[1,2,3,4,5].map(n=>`<button data-f="${n}" onclick="pickFeel(${n})">${["😖","😕","🙂","😀","🔥"][n-1]}</button>`).join("")}</div>
-    <label>Note</label><textarea id="laNote" rows="2" placeholder="Optional"></textarea>
-    <button class="btn volt" style="margin-top:16px" onclick="saveAct()">Save run</button>
+    <label>Link to a planned session (optional)</label>
+    <select id="laLink"><option value="">— Not linked —</option>
+      ${ALL.filter(w=>!state.done[w.id]||(ed&&ed.link===w.id)).map(w=>`<option value="${w.id}" ${ed&&ed.link===w.id?"selected":""}>Wk${w.week} · ${esc(w.name)} (${fmtShort(effDate(w))})</option>`).join("")}
+    </select>
+    <label>Name</label><input id="laName" placeholder="Evening run along the Thames" value="${ed?esc(ed.name):""}">
+    <label>Date</label><input type="date" id="laDate" value="${ed?ed.date:todayISO()}">
+    <div style="display:flex;gap:10px" id="distTimeRow">
+      <div style="flex:1"><label>Distance (km)</label><input id="laKm" type="number" inputmode="decimal" step="0.1" placeholder="5.0" value="${ed&&ed.km?ed.km:""}"></div>
+      <div style="flex:1"><label>Time (minutes)</label><input id="laMin" type="number" inputmode="decimal" step="0.5" placeholder="32" value="${ed&&ed.mins?ed.mins:""}"></div>
+    </div>
+    ${state.shoes.length?`<label>Shoes</label><select id="laShoe"><option value="">— None —</option>${shoeOpts}</select>`:""}
+    <label>How did it feel? (effort)</label>
+    <div class="segTabs" id="feelRow">${[1,2,3,4,5].map(n=>`<button data-f="${n}" onclick="pickFeel(${n})" class="${ed&&ed.feel===n?'on':''}">${["😖","😕","🙂","😀","🔥"][n-1]}</button>`).join("")}</div>
+    <label>Note</label><textarea id="laNote" rows="2" placeholder="How it went, how the legs felt, weather…">${ed?esc(ed.note||""):""}</textarea>
+    <button class="btn volt" style="margin-top:16px" onclick="saveAct(${editIdx!=null?editIdx:-1})">${ed?"Update":"Save"} activity</button>
   `);
+  pickedFeel = ed&&ed.feel?ed.feel:0; pickedType = ed&&ed.atype?ed.atype:"run";
 }
-let pickedFeel = 0;
+let pickedFeel = 0, pickedType = "run";
 function pickFeel(n){ pickedFeel=n; document.querySelectorAll("#feelRow button").forEach(b=>b.classList.toggle("on", +b.dataset.f===n)); }
-function saveAct(){
-  const km=parseFloat(document.getElementById("laKm").value), mins=parseFloat(document.getElementById("laMin").value);
-  if(!km||!mins){ toast("Add distance and time"); return; }
+function pickType(t){ pickedType=t; document.querySelectorAll("#typeRow button").forEach(b=>b.classList.toggle("on", b.dataset.t===t));
+  const dt=document.getElementById("distTimeRow"); if(dt) dt.style.opacity = t==="strength"?".5":"1"; }
+function saveAct(editIdx){
+  const km=parseFloat(document.getElementById("laKm").value)||0, mins=parseFloat(document.getElementById("laMin").value)||0;
+  if(pickedType!=="strength" && (!km||!mins)){ toast("Add distance and time"); return; }
   const link=document.getElementById("laLink").value;
-  const name=document.getElementById("laName").value.trim() || (link?byId(link).name:"Run");
-  state.activities.push({name, date:document.getElementById("laDate").value||todayISO(), km, mins, feel:pickedFeel, note:document.getElementById("laNote").value.trim(), link});
+  const shoeEl=document.getElementById("laShoe");
+  const name=document.getElementById("laName").value.trim() || (link?byId(link).name:(pickedType==="strength"?"Strength session":pickedType==="cross"?"Cross-training":"Run"));
+  const rec={name, atype:pickedType, date:document.getElementById("laDate").value||todayISO(), km, mins,
+    feel:pickedFeel, note:document.getElementById("laNote").value.trim(), link, shoe:shoeEl?shoeEl.value:""};
+  if(editIdx>=0){ rec.track=state.activities[editIdx].track; rec.startIso=state.activities[editIdx].startIso; state.activities[editIdx]=rec; }
+  else state.activities.push(rec);
   if(link){ state.done[link]=true; }
-  pickedFeel=0; save(); closeSheet(); render(); toast("Run saved · "+paceFrom(km,mins));
+  pickedFeel=0; pickedType="run"; save(); closeSheet(); render();
+  toast(editIdx>=0?"Activity updated":(km?("Saved · "+paceFrom(km,mins)):"Activity saved"));
 }
-function delAct(i){ state.activities.splice(i,1); save(); render(); }
+function delAct(i){ uiConfirm("Delete this activity?", ()=>{ state.activities.splice(i,1); save(); render(); }); }
 
 /* ================= INSIGHTS ================= */
 function renderInsights(){
@@ -641,12 +806,33 @@ function renderInsights(){
     </div>`;
   }
 
+  const pb = personalBests();
+  const streak = runStreak();
+  const tw = thisWeekKm();
   document.getElementById("main").innerHTML = topbar("Insights","TRAINING ANALYSIS") +
   `<div class="card glow">
     <div class="eyebrow">Plan completion</div>
     <div class="row"><div class="count" style="font-size:42px">${pct}<span style="color:var(--volt);font-size:18px">%</span></div>
     <div style="text-align:right" class="muted" style="font-size:13px">${doneKm.toFixed(1)}km of ${totalKm.toFixed(1)}km<br>banked so far</div></div>
   </div>
+  <div class="runGrid" style="margin:0 0 14px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+    <div class="cell" style="background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:13px;text-align:center"><b style="display:block;font-size:22px">${streak}</b><small style="color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-spacing:.05em">run streak</small></div>
+    <div class="cell" style="background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:13px;text-align:center"><b style="display:block;font-size:22px">${pb?pb.count:0}</b><small style="color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-spacing:.05em">runs logged</small></div>
+    <div class="cell" style="background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:13px;text-align:center"><b style="display:block;font-size:22px">${pb?pb.total.toFixed(0):0}</b><small style="color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-spacing:.05em">km run</small></div>
+  </div>
+  <div class="card">
+    <div class="eyebrow">This week · actual vs plan</div>
+    <div class="row" style="margin-bottom:8px"><b style="font-size:20px">${tw.done.toFixed(1)}<span class="muted" style="font-size:14px"> / ${tw.plan.toFixed(1)} km</span></b>
+    <span class="muted" style="font-size:13px">${tw.plan?Math.round(100*tw.done/tw.plan):0}% of planned</span></div>
+    <div class="progressBar"><i class="done" style="flex:${Math.min(100,tw.plan?100*tw.done/tw.plan:0)}"></i><i style="flex:${Math.max(0,100-(tw.plan?100*tw.done/tw.plan:0))}"></i></div>
+  </div>
+  ${pb?`<div class="card">
+    <div class="eyebrow">🏆 Personal bests</div>
+    <div class="row" style="padding:9px 0;border-bottom:1px solid var(--line)"><span class="muted">Fastest pace</span><b>${paceFrom(pb.fastestPace.km,pb.fastestPace.mins)} <span class="muted" style="font-weight:400;font-size:12px">· ${pb.fastestPace.km}km</span></b></div>
+    ${pb.best5?`<div class="row" style="padding:9px 0;border-bottom:1px solid var(--line)"><span class="muted">Best 5km+ pace</span><b>${paceFrom(pb.best5.km,pb.best5.mins)}</b></div>`:""}
+    <div class="row" style="padding:9px 0;border-bottom:1px solid var(--line)"><span class="muted">Longest run</span><b>${pb.longest.km} km</b></div>
+    <div class="row" style="padding:9px 0"><span class="muted">Total time on feet</span><b>${Math.floor(pb.totalTime/60)}h ${Math.round(pb.totalTime%60)}m</b></div>
+  </div>`:""}
   <div class="card">
     <div class="eyebrow">Weekly mileage · planned vs done</div>
     <svg class="chart" viewBox="0 0 520 190">${bars}</svg>
@@ -705,9 +891,203 @@ function renderRace(){
 }
 function tickCL(i){ state.checklist[i]=!state.checklist[i]; if(!state.checklist[i]) delete state.checklist[i]; save(); render(); }
 
+/* ---------- stats: PBs, streak, shoes ---------- */
+function runActs(){ return state.activities.filter(a=>(a.atype||"run")==="run" && a.km>0 && a.mins>0); }
+function personalBests(){
+  const r=runActs(); if(!r.length) return null;
+  const fastestPace = r.reduce((b,a)=> (a.mins/a.km)<(b.mins/b.km)?a:b );
+  const longest = r.reduce((b,a)=> a.km>b.km?a:b );
+  const total = r.reduce((s,a)=>s+a.km,0);
+  const totalTime = r.reduce((s,a)=>s+a.mins,0);
+  // best 5k-equivalent: any run >=5km, by pace
+  const fiveK = r.filter(a=>a.km>=4.7);
+  const best5 = fiveK.length? fiveK.reduce((b,a)=>(a.mins/a.km)<(b.mins/b.km)?a:b) : null;
+  return {fastestPace, longest, total, totalTime, count:r.length, best5};
+}
+function runStreak(){
+  const days=[...new Set(state.activities.filter(a=>(a.atype||"run")==="run").map(a=>a.date))].sort();
+  if(!days.length) return 0;
+  // count consecutive-day chains ending at most recent
+  let streak=1;
+  for(let i=days.length-1;i>0;i--){
+    const d1=new Date(days[i]+"T00:00:00"), d0=new Date(days[i-1]+"T00:00:00");
+    if((d1-d0)/86400000<=2) streak++; else break; // allow a rest day in between
+  }
+  return streak;
+}
+function thisWeekKm(){
+  const cw=PLAN.find(w=>w.n===currentWeek());
+  if(!cw) return {done:0,plan:0};
+  const done=state.activities.filter(a=>a.date>=cw.from&&a.date<=cw.to&&(a.atype||"run")==="run").reduce((s,a)=>s+(a.km||0),0);
+  return {done, plan:weekKm(cw)};
+}
+function shoeKm(id){ return state.activities.filter(a=>a.shoe===id).reduce((s,a)=>s+(a.km||0),0); }
+
+/* ---------- plan creator ---------- */
+function openPlanCreator(){
+  const def = todayISO();
+  // default race date ~9 weeks out
+  const d9 = new Date(); d9.setDate(d9.getDate()+63);
+  openSheet(`
+    <h2>Create a plan</h2>
+    <div class="muted" style="font-size:14px;line-height:1.5">Builds a periodised plan from the same principles as your York block — easy-hard balance, progressive overload, a recovery week every third week, then a taper. Fully transparent, no black box.</div>
+
+    <label>Goal distance</label>
+    <div class="segTabs" id="pcGoal">
+      ${Object.entries(GOALS).map(([k,v])=>`<button data-g="${k}" onclick="pcPick('${k}')" class="${k==='10k'?'on':''}">${v.label}</button>`).join("")}
+    </div>
+
+    <label>Race name (optional)</label>
+    <input id="pcName" placeholder="e.g. Surrey Half">
+
+    <label>Race date</label>
+    <input type="date" id="pcDate" value="${isoOf(d9)}" min="${def}">
+
+    <label>Runs per week</label>
+    <div class="segTabs" id="pcRpw">
+      <button data-r="3" onclick="pcRpwPick(3)">3 runs</button>
+      <button data-r="4" onclick="pcRpwPick(4)" class="on">4 runs</button>
+    </div>
+
+    <label>Target race pace (min:sec per km)</label>
+    <input id="pcPace" placeholder="5:35" value="5:35">
+    <div class="faint" style="font-size:12.5px;margin-top:6px;line-height:1.5">All your easy, tempo and interval paces are derived from this. Not sure? Use a pace you could just about hold for your goal distance today — the plan builds you toward it.</div>
+
+    <div id="pcPreview" class="card" style="background:var(--panel2);margin-top:16px;display:none"></div>
+
+    <button class="btn ghost" style="margin-top:14px" onclick="pcBuildPreview()">Preview plan</button>
+    <button class="btn volt" style="margin-top:10px" onclick="pcCreate()">Create & use this plan</button>
+  `);
+  pcGoal="10k"; pcRpw=4;
+}
+let pcGoal="10k", pcRpw=4, pcLastPlan=null;
+function pcPick(g){ pcGoal=g; document.querySelectorAll("#pcGoal button").forEach(b=>b.classList.toggle("on",b.dataset.g===g)); }
+function pcRpwPick(r){ pcRpw=r; document.querySelectorAll("#pcRpw button").forEach(b=>b.classList.toggle("on",+b.dataset.r===r)); }
+function pcGather(){
+  const rp=paceToSec(document.getElementById("pcPace").value);
+  const raceDate=document.getElementById("pcDate").value;
+  if(!rp){ toast("Enter pace as m:ss, e.g. 5:35"); return null; }
+  if(!raceDate){ toast("Pick a race date"); return null; }
+  const weeks = Math.max(4, Math.min(16, Math.ceil((new Date(raceDate)-new Date(todayISO()))/(86400000*7))));
+  return { goal:pcGoal, racePaceSec:rp, runsPerWeek:pcRpw, raceDate, weeks,
+           name:document.getElementById("pcName").value.trim() };
+}
+function pcBuildPreview(){
+  const o=pcGather(); if(!o) return;
+  const p=generatePlan(o); pcLastPlan=p;
+  const box=document.getElementById("pcPreview"); box.style.display="block";
+  box.innerHTML=`<div class="eyebrow">Preview · ${p.weeks.length} weeks · ${p.totalKm}km total</div>
+    <div class="muted" style="font-size:13px;margin-bottom:8px">Predicted finish ${p.race.estLow}–${p.race.estHigh}</div>
+    ${p.weeks.map(w=>`<div class="row" style="padding:5px 0;border-bottom:1px solid var(--line);font-size:13px">
+      <span class="muted">Wk ${w.n} · ${w.workouts.length} runs</span>
+      <b>${w.workouts.reduce((s,x)=>s+x.km,0).toFixed(1)}km</b></div>`).join("")}`;
+}
+function pcCreate(){
+  const o=pcGather(); if(!o) return;
+  let p;
+  try{ p = generatePlan(o); }
+  catch(e){ toast("Couldn't build plan — check inputs"); return; }
+  state.customPlan=p; save(); applyPlan(p);
+  pcLastPlan=null; tab="plan"; closeSheet(); render();
+  toast("New plan created ✓");
+}
+
+/* ---------- profile / backup / shoes ---------- */
+function openProfile(){
+  const lastSave = store.get("lastSave",0);
+  openSheet(`
+    <h2>Profile & data</h2>
+    <div class="muted" style="font-size:14px">Tom · York 10K build · v${APP_VER}</div>
+
+    <div class="card" style="margin-top:14px;background:var(--panel2)">
+      <div class="eyebrow">⚠️ Keep your data safe</div>
+      <div class="muted" style="font-size:14px;line-height:1.55">iPhones can occasionally clear a home-screen app's saved data. Export a backup now and then — it downloads a small file you can re-import anytime to restore every run, note and setting.</div>
+      <div style="display:flex;gap:10px;margin-top:12px">
+        <button class="btn volt sm" style="flex:1" onclick="exportData()">⬇︎ Export backup</button>
+        <button class="btn ghost sm" style="flex:1" onclick="document.getElementById('importFile').click()">⬆︎ Import backup</button>
+      </div>
+      <input id="importFile" type="file" accept="application/json,.json" style="display:none" onchange="importData(this)">
+      ${lastSave?`<div class="faint" style="font-size:12px;margin-top:10px">Last saved ${fmtD(new Date(lastSave).toISOString().slice(0,10))}</div>`:""}
+    </div>
+
+    <div class="eyebrow" style="margin-top:18px">👟 Shoe mileage</div>
+    <div class="muted" style="font-size:13.5px;margin-bottom:10px">Track mileage per pair — most road shoes are done around 600–800km.</div>
+    ${state.shoes.length? state.shoes.map(s=>{const km=shoeKm(s.id); const pct=Math.min(100,Math.round(100*km/(s.retireKm||700)));
+      return `<div class="card" style="background:var(--panel2);padding:13px;margin-bottom:10px">
+        <div class="row"><b>${esc(s.name)}</b><span class="muted">${km.toFixed(0)} / ${s.retireKm||700} km</span></div>
+        <div class="progressBar" style="margin:9px 0 0"><i class="done" style="flex:${pct}"></i><i style="flex:${100-pct}"></i></div>
+        ${km>=(s.retireKm||700)?'<div style="color:#ff8c7d;font-size:13px;margin-top:8px">Time to retire these 👟</div>':""}
+        <div style="margin-top:9px"><button class="btn danger sm" onclick="delShoe('${s.id}')">Remove</button></div>
+      </div>`;}).join("")
+    : `<div class="muted" style="font-size:13px;margin-bottom:10px">No shoes added yet.</div>`}
+    <div style="display:flex;gap:8px">
+      <input id="shoeName" placeholder="e.g. Saucony Endorphin Speed" style="flex:2">
+      <input id="shoeRetire" type="number" placeholder="700" style="flex:1">
+    </div>
+    <button class="btn ghost sm" style="margin-top:10px" onclick="addShoe()">＋ Add shoe</button>
+
+    <div class="eyebrow" style="margin-top:22px">Training plan</div>
+    <button class="btn ghost" onclick="openPlanCreator()">＋ Create a new goal-based plan</button>
+    ${state.customPlan?`<button class="btn ghost" style="margin-top:10px" onclick="useDefaultPlan()">Restore York 10K plan</button>`:""}
+
+    <div class="eyebrow" style="margin-top:22px">Reset</div>
+    <button class="btn danger" onclick="resetAll()">Erase all data</button>
+  `);
+}
+function addShoe(){
+  const name=document.getElementById("shoeName").value.trim(); if(!name){ toast("Name the shoe"); return; }
+  const retire=parseInt(document.getElementById("shoeRetire").value)||700;
+  state.shoes.push({id:"sh"+Date.now(), name, retireKm:retire}); save(); openProfile(); toast("Shoe added");
+}
+function delShoe(id){ state.shoes=state.shoes.filter(s=>s.id!==id); state.activities.forEach(a=>{if(a.shoe===id)a.shoe="";}); save(); openProfile(); }
+function exportData(){
+  try{
+    const dump={ app:"pacecraft", ver:APP_VER, exported:new Date().toISOString(),
+      done:state.done, notes:state.notes, moved:state.moved, activities:state.activities, checklist:state.checklist, shoes:state.shoes, customPlan:state.customPlan };
+    const blob=new Blob([JSON.stringify(dump,null,2)],{type:"application/json"});
+    const url=URL.createObjectURL(blob); const a=document.createElement("a");
+    a.href=url; a.download="pacecraft-backup-"+todayISO()+".json";
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),4000);
+    toast("Backup downloaded ✓");
+  }catch(e){ toast("Export failed"); }
+}
+function importData(input){
+  const f=input.files&&input.files[0]; if(!f) return;
+  const fr=new FileReader();
+  fr.onload=()=>{
+    try{
+      const d=JSON.parse(fr.result);
+      if(d.app!=="pacecraft") { toast("Not a Pacecraft backup"); return; }
+      uiConfirm("Restore this backup? It replaces current data in the app.", ()=>{
+        state.done=d.done||{}; state.notes=d.notes||{}; state.moved=d.moved||{};
+        state.activities=d.activities||[]; state.checklist=d.checklist||{}; state.shoes=d.shoes||[];
+        state.customPlan=d.customPlan||null;
+        save(); if(state.customPlan){ applyPlan(state.customPlan); } else { PLAN=DEFAULT_PLAN; RACE=DEFAULT_RACE; ZONES=DEFAULT_ZONES; rebuildALL(); }
+        closeSheet(); render(); toast("Backup restored ✓");
+      });
+    }catch(e){ toast("Couldn't read that file"); }
+  };
+  fr.readAsText(f);
+}
+function resetAll(){
+  uiConfirm("Erase ALL logged runs, notes and settings? This can't be undone.", ()=>{
+    state.done={};state.notes={};state.moved={};state.activities=[];state.checklist={};state.shoes=[];state.customPlan=null;
+    PLAN=DEFAULT_PLAN; RACE=DEFAULT_RACE; ZONES=DEFAULT_ZONES; rebuildALL();
+    save(); closeSheet(); render(); toast("All data cleared");
+  });
+}
+
 /* ================= sheet + nav ================= */
 function openSheet(html){ document.getElementById("sheet").innerHTML='<div class="handle"></div>'+html; document.getElementById("sheetWrap").classList.add("open"); }
-function closeSheet(){ document.getElementById("sheetWrap").classList.remove("open"); }
+let _confirmCb=null;
+function uiConfirm(msg, onYes){
+  _confirmCb=onYes;
+  document.getElementById("confirmMsg").textContent=msg;
+  const y=document.getElementById("confirmYes");
+  y.onclick=()=>{ document.getElementById("confirmWrap").classList.remove("open"); const cb=_confirmCb; _confirmCb=null; if(cb) cb(); };
+  document.getElementById("confirmWrap").classList.add("open");
+}
+function confirmNo(){ document.getElementById("confirmWrap").classList.remove("open"); _confirmCb=null; }function closeSheet(){ document.getElementById("sheetWrap").classList.remove("open"); }
 
 let tab="today";
 function render(){ ({today:renderToday,plan:renderPlan,log:renderLog,insights:renderInsights,race:renderRace})[tab](); }
