@@ -217,6 +217,31 @@ label{display:block;font-size:12px;font-weight:700;letter-spacing:.08em;text-tra
 .runPanel .bigRow .clock{font-size:24px;font-weight:750;color:var(--muted);font-variant-numeric:tabular-nums}
 #routeMap{height:300px;border-radius:14px;border:1px solid var(--line);margin-top:12px;overflow:hidden;background:var(--panel2)}
 .actbtns{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.iconBtn{width:38px;height:38px;border-radius:11px;background:var(--panel2);border:1px solid var(--line);color:var(--text);display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none}
+.iconBtn:active{opacity:.7}
+/* week strip */
+.weekStrip{display:flex;gap:6px;margin:2px 0 16px}
+.weekStrip .day{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:9px 2px 8px;text-align:center;cursor:pointer;position:relative}
+.weekStrip .day.today{border-color:var(--volt);background:rgba(216,243,78,.08)}
+.weekStrip .day small{display:block;font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:.04em;font-weight:700}
+.weekStrip .day b{display:block;font-size:16px;margin-top:2px}
+.weekStrip .dots{display:flex;gap:2px;justify-content:center;margin-top:5px;min-height:7px}
+.weekStrip .dots i{width:6px;height:6px;border-radius:50%}
+/* calendar */
+.calHead{display:flex;align-items:center;justify-content:space-between;margin:6px 0 12px}
+.calHead b{font-size:18px}
+.calGrid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
+.calGrid .dow{text-align:center;font-size:10.5px;color:var(--faint);font-weight:700;text-transform:uppercase;padding-bottom:4px}
+.calCell{aspect-ratio:1;background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:5px 0 0;display:flex;flex-direction:column;align-items:center;cursor:pointer;position:relative;min-height:46px}
+.calCell.empty{background:transparent;border:none;cursor:default}
+.calCell.today{border-color:var(--volt)}
+.calCell.muted2{opacity:.4}
+.calCell .num{font-size:13px;font-weight:600}
+.calCell .cdots{display:flex;gap:2px;flex-wrap:wrap;justify-content:center;margin-top:3px;max-width:90%}
+.calCell .cdots i{width:6px;height:6px;border-radius:50%}
+.calLegend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:14px}
+.calLegend span{display:flex;align-items:center;gap:5px}
+.calLegend i{width:9px;height:9px;border-radius:50%;display:inline-block}
 </style>
 </head>
 <body>
@@ -226,10 +251,10 @@ label{display:block;font-size:12px;font-weight:700;letter-spacing:.08em;text-tra
 
 <nav><div class="inner">
   <button data-tab="today" class="active"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9 17 7M7 17l-2.1 2.1"/></svg>Today</button>
-  <button data-tab="plan"><svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="3"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>Plan</button>
-  <button data-tab="log"><svg viewBox="0 0 24 24"><path d="M5 20v-7M12 20V8M19 20v-4"/><path d="M3 20h18"/></svg>Activities</button>
-  <button data-tab="insights"><svg viewBox="0 0 24 24"><path d="M3 17l5-6 4 3 6-8"/><circle cx="20" cy="5" r="1.6"/></svg>Insights</button>
-  <button data-tab="race"><svg viewBox="0 0 24 24"><path d="M5 21V4"/><path d="M5 4h13l-3 4 3 4H5"/></svg>Race</button>
+  <button data-tab="plan"><svg viewBox="0 0 24 24"><path d="M5 12h14M5 12l4-4M5 12l4 4"/><circle cx="19" cy="12" r="1.6"/></svg>Run</button>
+  <button data-tab="gym"><svg viewBox="0 0 24 24"><path d="M6.5 6.5v11M17.5 6.5v11M4 9v6M20 9v6M6.5 12h11"/></svg>Gym</button>
+  <button data-tab="log"><svg viewBox="0 0 24 24"><path d="M5 20v-7M12 20V8M19 20v-4"/><path d="M3 20h18"/></svg>Log</button>
+  <button data-tab="insights"><svg viewBox="0 0 24 24"><path d="M3 17l5-6 4 3 6-8"/><circle cx="20" cy="5" r="1.6"/></svg>Stats</button>
 </div></nav>
 
 <div class="sheetWrap" id="sheetWrap">
@@ -275,6 +300,66 @@ const TYPES = {
   taper:{cls:"t-taper", label:"Taper Intervals"},
   race:{cls:"t-race", label:"Race"}
 };
+
+/* ============================================================
+   STRENGTH PROGRAMME — Upper/Lower, 4–5x/week
+   Goal: lean + build muscle at 81kg / 177cm / 16% BF.
+   Compound-led, double-progression, no circuits. Designed to
+   sit alongside the run plan so hard legs avoid key run days.
+   Rep ranges: compounds 5–8 (strength+size), accessories 8–12,
+   isolation 12–15. Rest: 2–3 min compounds, 60–90s rest else.
+   ============================================================ */
+const GYM = {
+  goal:"Lean & build · upper/lower",
+  // suggested weekly integration with the run plan
+  schedule:"Mon Upper A · Tue run (intervals) · Wed Lower A · Thu Upper B + easy run · Fri Lower B · Sat long run · Sun rest (or Arms)",
+  days:[
+    {key:"A", name:"Upper · Strength", focus:"Push-led upper, heavy compounds", ex:[
+      {id:"bench",   name:"Barbell Bench Press",      sets:4, reps:"5–7",  rest:"2–3 min", kind:"compound", cue:"Drive through mid-foot, control the descent."},
+      {id:"ohp",     name:"Standing Overhead Press",  sets:3, reps:"6–8",  rest:"2 min",   kind:"compound", cue:"Squeeze glutes, ribs down, press in a straight line."},
+      {id:"pullup",  name:"Pull-ups (weighted if able)",sets:3, reps:"6–10",rest:"2 min",   kind:"compound", cue:"Full hang to chin over bar. Add load once 10 is easy."},
+      {id:"inclbdb", name:"Incline DB Press",         sets:3, reps:"8–10", rest:"90s",     kind:"accessory",cue:"30° bench, stretch at the bottom."},
+      {id:"row1",    name:"Chest-Supported Row",      sets:3, reps:"8–12", rest:"90s",     kind:"accessory",cue:"Pull to lower ribs, pause, squeeze."},
+      {id:"latr1",   name:"Lateral Raise",            sets:3, reps:"12–15",rest:"60s",     kind:"isolation",cue:"Lead with elbows, no swing."},
+      {id:"tri1",    name:"Triceps Rope Pushdown",    sets:3, reps:"12–15",rest:"60s",     kind:"isolation",cue:"Lock elbows in, full extension."},
+    ]},
+    {key:"B", name:"Lower · Quad focus", focus:"Squat pattern, quad + calf", ex:[
+      {id:"squat",   name:"Back Squat",               sets:4, reps:"5–7",  rest:"3 min",   kind:"compound", cue:"Brace hard, knees track toes, depth to parallel+."},
+      {id:"rdl",     name:"Romanian Deadlift",        sets:3, reps:"8–10", rest:"2 min",   kind:"compound", cue:"Hinge, soft knees, feel the hamstring stretch."},
+      {id:"legpress",name:"Leg Press",                sets:3, reps:"10–12",rest:"90s",     kind:"accessory",cue:"Controlled, don't lock out hard."},
+      {id:"legcurl", name:"Seated Leg Curl",          sets:3, reps:"10–12",rest:"75s",     kind:"accessory",cue:"Squeeze at peak, slow return."},
+      {id:"calf1",   name:"Standing Calf Raise",      sets:4, reps:"12–15",rest:"60s",     kind:"isolation",cue:"Full stretch at the bottom, pause at the top."},
+      {id:"core1",   name:"Hanging Leg Raise",        sets:3, reps:"10–15",rest:"60s",     kind:"isolation",cue:"No swing, curl the pelvis."},
+    ]},
+    {key:"C", name:"Upper · Hypertrophy", focus:"Pull-led upper, volume + arms", ex:[
+      {id:"row2",    name:"Barbell Row",              sets:4, reps:"6–8",  rest:"2 min",   kind:"compound", cue:"45° torso, pull to navel, no jerking."},
+      {id:"inclbb",  name:"Incline Barbell Press",    sets:3, reps:"6–8",  rest:"2 min",   kind:"compound", cue:"Slight arch, bar to upper chest."},
+      {id:"pulldn",  name:"Lat Pulldown",             sets:3, reps:"10–12",rest:"90s",     kind:"accessory",cue:"Drive elbows down, chest proud."},
+      {id:"dbpress", name:"Seated DB Shoulder Press", sets:3, reps:"8–10", rest:"90s",     kind:"accessory",cue:"Don't clash the dumbbells at the top."},
+      {id:"facepull",name:"Face Pull",                sets:3, reps:"15–20",rest:"60s",     kind:"isolation",cue:"Pull to forehead, rotate shoulders back — great for posture."},
+      {id:"bicep1",  name:"Incline DB Curl",          sets:3, reps:"10–12",rest:"60s",     kind:"isolation",cue:"Arms behind torso, full stretch."},
+      {id:"latr2",   name:"Cable Lateral Raise",      sets:3, reps:"12–15",rest:"60s",     kind:"isolation",cue:"Constant tension, lean away from the stack."},
+    ]},
+    {key:"D", name:"Lower · Posterior", focus:"Hinge-led, glutes + hams", ex:[
+      {id:"deadlift",name:"Conventional Deadlift",    sets:3, reps:"4–6",  rest:"3 min",   kind:"compound", cue:"Brace, push the floor away, neutral spine. Skip if legs are race-trashed."},
+      {id:"bss",     name:"Bulgarian Split Squat",    sets:3, reps:"8–10", rest:"90s",     kind:"compound", cue:"Per leg. Front-foot pressure, tall torso."},
+      {id:"hipthr",  name:"Hip Thrust",               sets:3, reps:"8–12", rest:"90s",     kind:"accessory",cue:"Chin tucked, squeeze glutes hard at lockout."},
+      {id:"legext",  name:"Leg Extension",            sets:3, reps:"12–15",rest:"60s",     kind:"isolation",cue:"Pause at the top, control down."},
+      {id:"calf2",   name:"Seated Calf Raise",        sets:4, reps:"15–20",rest:"45s",     kind:"isolation",cue:"Slow tempo, full range."},
+      {id:"core2",   name:"Cable Woodchop / Pallof",  sets:3, reps:"12–15",rest:"45s",     kind:"isolation",cue:"Per side. Resist rotation, brace."},
+    ]},
+    {key:"E", name:"Arms & Shoulders (optional 5th)", focus:"Weak-point pump day", ex:[
+      {id:"ohp2",    name:"Seated DB Press",          sets:3, reps:"8–12", rest:"90s",     kind:"accessory",cue:"Optional 5th day — keep it light if legs/run load is high."},
+      {id:"bicep2",  name:"Barbell Curl",             sets:3, reps:"8–12", rest:"60s",     kind:"isolation",cue:"No swinging, control the negative."},
+      {id:"tri2",    name:"Overhead Cable Extension", sets:3, reps:"10–12",rest:"60s",     kind:"isolation",cue:"Full stretch overhead."},
+      {id:"latr3",   name:"Lateral Raise (drop set)", sets:3, reps:"12–15",rest:"45s",     kind:"isolation",cue:"Last set: drop the weight once and keep going."},
+      {id:"hammer",  name:"Hammer Curl",              sets:2, reps:"12–15",rest:"45s",     kind:"isolation",cue:"Targets brachialis for arm thickness."},
+      {id:"tri3",    name:"Triceps Dips",             sets:2, reps:"10–15",rest:"60s",     kind:"isolation",cue:"Lean forward slightly, full range."},
+    ]},
+  ]
+};
+function gymDay(key){ return GYM.days.find(d=>d.key===key); }
+function gymEx(id){ for(const d of GYM.days){ const e=d.ex.find(x=>x.id===id); if(e) return e; } return null; }
 
 /* Full plan — every workout from the schedule, with session structures and target paces */
 const DEFAULT_PLAN = [
@@ -395,8 +480,11 @@ let state = {
   checklist: store.get("checklist",{}),
   shoes: store.get("shoes",[]),
   customPlan: store.get("customPlan", null),
+  gymLog: store.get("gymLog",[]),      // [{date, dayKey, name, entries:[{exId, sets:[{w,reps}]}]}]
+  bodyLog: store.get("bodyLog",[]),    // [{date, kg, bf}]
+  gymStart: store.get("gymStart","2026-07-01"),
 };
-function save(){ store.set("done",state.done); store.set("notes",state.notes); store.set("moved",state.moved); store.set("activities",state.activities); store.set("checklist",state.checklist); store.set("shoes",state.shoes); store.set("customPlan",state.customPlan); store.set("lastSave",Date.now()); }
+function save(){ store.set("done",state.done); store.set("notes",state.notes); store.set("moved",state.moved); store.set("activities",state.activities); store.set("checklist",state.checklist); store.set("shoes",state.shoes); store.set("customPlan",state.customPlan); store.set("gymLog",state.gymLog); store.set("bodyLog",state.bodyLog); store.set("gymStart",state.gymStart); store.set("lastSave",Date.now()); }
 
 /* ---------------- helpers ---------------- */
 let PLAN = DEFAULT_PLAN;
@@ -566,53 +654,78 @@ function renderToday(){
   const dRace = daysUntil(RACE.date);
   const cw = currentWeek();
   const todays = ALL.filter(w=>effDate(w)===t);
-  const upcoming = ALL.filter(w=>effDate(w)>t && !state.done[w.id]).sort((a,b)=>effDate(a)<effDate(b)?-1:1).slice(0,2);
   const doneCount = ALL.filter(w=>state.done[w.id]).length;
-  const kmDone = ALL.filter(w=>state.done[w.id]).reduce((s,w)=>s+w.km,0);
-  const totalKm = ALL.reduce((s,w)=>s+w.km,0);
+  const dow = new Date(t+"T12:00:00").getDay(); // 0 Sun..6 Sat
+  // suggested gym day for today based on the integration template (Mon A, Wed B, Thu C, Fri D)
+  const gymToday = {1:"A",3:"B",4:"C",5:"D"}[dow] || null;
+  const gymDoneToday = state.gymLog.some(s=>s.date===t);
+  const lastBody = [...state.bodyLog].sort((a,b)=>a.date<b.date?1:-1)[0];
 
-  let block;
+  let runBlock;
   if(todays.length){
-    block = `<div class="eyebrow" style="margin-top:4px">Today's session</div>` + todays.map(w=>woCard(w)).join("");
+    runBlock = `<div class="eyebrow" style="margin-top:4px">Today's run</div>` + todays.map(w=>woCard(w)).join("");
   } else if (cw===0){
-    block = `<div class="banner"><b>Plan starts Monday 15 June.</b> First up: a 5km easy run. Until then — rest, walk Otis, maybe a gentle padel hit.</div>
-      <div class="eyebrow">First session</div>` + woCard(ALL[0]);
+    runBlock = `<div class="banner"><b>Run plan starts ${fmtShort(PLAN[0].from)}.</b></div>`;
   } else {
-    block = `<div class="banner"><b>Rest day.</b> No run scheduled — recovery is part of the plan. Stretch, hydrate, easy walk.</div>`;
+    runBlock = `<div class="banner">No run scheduled today — recovery is part of the plan.</div>`;
   }
 
+  // recent unified feed (runs + gym)
+  const feed=[
+    ...state.activities.map(a=>({date:a.date, kind:(a.atype||"run"), label:a.name, sub:(a.km?a.km+"km":"")+(a.km&&a.mins?" · "+paceFrom(a.km,a.mins):"")})),
+    ...state.gymLog.map(s=>({date:s.date, kind:"gym", label:s.name, sub:s.entries.length+" exercises"}))
+  ].sort((a,b)=>a.date<b.date?1:-1).slice(0,4);
+  const kindIcon={run:"🏃",gym:"🏋️",strength:"🏋️",cross:"🚴"};
+
   document.getElementById("main").innerHTML = `
-  ${topbar("Pacecraft","YORK 10K BUILD")}
+  ${topbar("Pacecraft","TRAIN · "+(lastBody?lastBody.kg+"KG":"81KG"))}
   <div class="card glow hero">
     <div class="track"></div>
-    <div class="eyebrow">${RACE.name} · ${fmtD(RACE.date)}</div>
+    <div class="eyebrow">${esc(RACE.name)} · ${fmtD(RACE.date)}</div>
     <div class="count">${dRace>0?dRace:0}<span>days to go</span></div>
     <div class="heroMeta">
       <div class="m"><b>${RACE.estLow} – ${RACE.estHigh}</b><small>predicted finish</small></div>
-      <div class="m"><b>${kmDone.toFixed(1)} / ${totalKm.toFixed(1)} km</b><small>plan distance</small></div>
-      <div class="m"><b>${doneCount} / ${ALL.length}</b><small>sessions done</small></div>
+      <div class="m"><b>${doneCount}/${ALL.length}</b><small>runs done</small></div>
+      <div class="m"><b>${state.gymLog.length}</b><small>gym sessions</small></div>
     </div>
   </div>
-  ${block}
-  ${upcoming.length?`<div class="eyebrow" style="margin-top:18px">Coming up</div>`+upcoming.map(w=>woCard(w)).join(""):""}
-  <div class="card zones">
-    <div class="eyebrow">Your pace zones</div>
-    ${ZONES.map(z=>`<div class="z"><span class="dot ${z.k==="easy"?"t-easy":z.k==="tempo"?"t-tempo":z.k==="race"?"t-race":"t-intervals"}"></span>
-      <div><b>${z.name}</b><small>${z.note}</small></div><div class="pace">${z.pace}</div></div>`).join("")}
-  </div>
-  <div style="display:flex;gap:10px">
-    <button class="btn" onclick="openRunSetup('${todays.length?todays[0].id:"free"}')">🎧 &nbsp;Guided run</button>
-    <button class="btn volt" onclick="openLogSheet()">＋ &nbsp;Log a run</button>
+
+  ${weekStrip()}
+
+  ${runBlock}
+
+  <div class="eyebrow" style="margin-top:18px">Today's gym</div>
+  ${gymToday? `<div class="wo ${gymDoneToday?"done":""}" onclick="startGymSession('${gymToday}')">
+      <div class="stripe ${gymToday==='A'||gymToday==='C'?'t-intervals':'t-long'}"></div>
+      <div class="body"><h3>${esc(gymDay(gymToday).name)}</h3><div class="sub">${esc(gymDay(gymToday).focus)}</div>
+      <span class="tag">${gymDay(gymToday).ex.length} exercises${gymDoneToday?" · done ✓":""}</span></div>
+      <div class="right"><div class="check ${gymDoneToday?"on":""}">${gymDoneToday?"✓":"▶"}</div></div>
+    </div>`
+    : `<div class="banner">No gym day scheduled today. ${dow===0||dow===6?"Optional arms/shoulders day if you're feeling fresh.":""} <span onclick="tab='gym';render()" style="color:var(--volt);text-decoration:underline;cursor:pointer">Pick a session →</span></div>`}
+
+  ${feed.length?`<div class="eyebrow" style="margin-top:18px">Recent activity</div>
+    ${feed.map(f=>`<div class="act" style="padding:12px"><div class="top"><h3 style="font-size:15px">${kindIcon[f.kind]||"🏃"} ${esc(f.label)}</h3><span class="when">${fmtShort(f.date)}</span></div>${f.sub?`<div class="muted" style="font-size:13px;margin-top:4px">${esc(f.sub)}</div>`:""}</div>`).join("")}`:""}
+
+  <div style="display:flex;gap:10px;margin-top:16px">
+    <button class="btn" onclick="openRunSetup('${todays.length?todays[0].id:"free"}')">🎧 Run</button>
+    <button class="btn" onclick="tab='gym';render()">🏋️ Gym</button>
+    <button class="btn volt" onclick="openBodyLog()">⚖️ Weigh-in</button>
   </div>`;
 }
 
-const APP_VER = "1.7";
-function topbar(title, sub){
+const APP_VER = "1.9";
+let navStack=[];
+function topbar(title, sub, opts){
+  opts=opts||{};
+  const back = opts.back ? `<button class="iconBtn" onclick="goBack()" aria-label="Back"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>` : "";
+  const cal = opts.noCal ? "" : `<button class="iconBtn" onclick="goTo('cal')" aria-label="Calendar"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="16" rx="3"/><path d="M3 9h18M8 2.5v4M16 2.5v4"/></svg></button>`;
   return `<div class="topbar">
-    <div class="brand"><div class="mark">P</div><div><b>${title}</b><small>${sub} · v${APP_VER}</small></div></div>
-    <div class="avatar" onclick="openProfile()">T</div>
+    <div class="brand">${back||`<div class="mark">P</div>`}<div><b>${title}</b><small>${sub} · v${APP_VER}</small></div></div>
+    <div style="display:flex;align-items:center;gap:8px">${cal}<div class="avatar" onclick="openProfile()">T</div></div>
   </div>`;
 }
+function goTo(t){ if(t!==tab) navStack.push(tab); tab=t; document.querySelectorAll("nav button").forEach(x=>x.classList.toggle("active",x.dataset.tab===t)); window.scrollTo(0,0); render(); }
+function goBack(){ const prev=navStack.pop()||"today"; tab=prev; document.querySelectorAll("nav button").forEach(x=>x.classList.toggle("active",x.dataset.tab===prev)); window.scrollTo(0,0); render(); }
 
 /* ================= PLAN ================= */
 function renderPlan(){
@@ -625,7 +738,10 @@ function renderPlan(){
     <div class="row"><div><div class="eyebrow">Goal race</div><b style="font-size:18px">🏁 ${esc(RACE.name)}</b><div class="muted" style="font-size:13px">${fmtD(RACE.date)} · predicted ${RACE.estLow}–${RACE.estHigh}</div></div>
     <div style="text-align:right"><div class="eyebrow">Total</div><b style="font-size:22px">${totalKm.toFixed(1)}<span style="font-size:13px;color:var(--muted)"> km</span></b></div></div>
   </div>
-  <button class="btn ghost" style="margin-bottom:14px" onclick="openPlanCreator()">＋ &nbsp;Create a new plan</button>` +
+  <div style="display:flex;gap:10px;margin-bottom:14px">
+    <button class="btn ghost" style="flex:1" onclick="openPlanCreator()">＋ New plan</button>
+    <button class="btn ghost" style="flex:1" onclick="goTo('race')">🏁 Race day</button>
+  </div>` +
   PLAN.map(w=>{
     const ids = w.workouts.map(x=>x.id);
     const dn = ids.filter(id=>state.done[id]).length;
@@ -661,8 +777,13 @@ function openWorkout(id){
     ${w.steps.map(s=>`<div class="step"><div class="ic ${T.cls}">${icon[s.t]||"●"}</div><div><b>${esc(s.label)}</b><small>${esc(s.sub)}</small></div></div>`).join("")}
     <label>Notes (how did it go?)</label>
     <textarea id="noteBox" rows="3" placeholder="e.g. Felt strong, last rep at 4:58/km…">${esc(state.notes[id]||"")}</textarea>
-    <label>Move this workout</label>
+    <label>Reschedule this session</label>
     <input type="date" id="moveDate" value="${effDate(w)}">
+    <div class="segTabs" id="moveMode" style="margin-top:10px">
+      <button data-mm="one" class="on" onclick="mmPick('one')">Move only this</button>
+      <button data-mm="cascade" onclick="mmPick('cascade')">Shift rest of plan</button>
+    </div>
+    <div class="faint" style="font-size:12px;margin-top:-4px;line-height:1.45" id="moveHint">"Shift rest of plan" moves this session and every later run by the same number of days — handy when life pushes your week back.</div>
     <div style="display:flex;gap:10px;margin-top:18px">
       <button class="btn" onclick="openRunSetup('${id}')">🎧 &nbsp;Start guided run</button>
     </div>
@@ -670,17 +791,39 @@ function openWorkout(id){
       <button class="btn ${done?"ghost":"volt"}" onclick="toggleDone('${id}');openWorkout('${id}')">${done?"Mark as not done":"Mark complete ✓"}</button>
     </div>
     <div style="display:flex;gap:10px;margin-top:10px">
-      <button class="btn ghost" onclick="saveWorkoutEdits('${id}')">Save notes & date</button>
+      <button class="btn ghost" onclick="saveWorkoutEdits('${id}')">Save changes</button>
       ${state.moved[id]?`<button class="btn ghost" onclick="resetMove('${id}')">Reset date</button>`:""}
     </div>
   `);
+  mmMode="one";
 }
+let mmMode="one";
+function mmPick(m){ mmMode=m; document.querySelectorAll("#moveMode button").forEach(b=>b.classList.toggle("on",b.dataset.mm===m)); }
 function saveWorkoutEdits(id){
   const n = document.getElementById("noteBox").value.trim();
   const d = document.getElementById("moveDate").value;
   if(n) state.notes[id]=n; else delete state.notes[id];
   const w = byId(id);
-  if(d && d!==w.date) state.moved[id]=d; else delete state.moved[id];
+  if(d && d!==effDate(w)){
+    if(mmMode==="cascade"){
+      // shift this + all later sessions by the same delta (based on effective dates)
+      const delta = Math.round((new Date(d+"T12:00:00") - new Date(effDate(w)+"T12:00:00"))/86400000);
+      const snapshot = ALL.map(x=>({id:x.id, eff:effDate(x)}));
+      const fromEff = effDate(w);
+      let shifted=0;
+      snapshot.forEach(s=>{
+        if(s.eff>=fromEff){
+          const nd=isoOf(addDays(new Date(s.eff+"T12:00:00"), delta));
+          if(nd!==byId(s.id).date) state.moved[s.id]=nd; else delete state.moved[s.id];
+          shifted++;
+        }
+      });
+      save(); closeSheet(); render(); toast(`Shifted ${shifted} sessions by ${delta>0?"+":""}${delta} day${Math.abs(delta)===1?"":"s"}`);
+      return;
+    } else {
+      if(d!==w.date) state.moved[id]=d; else delete state.moved[id];
+    }
+  }
   save(); closeSheet(); render(); toast("Saved");
 }
 function resetMove(id){ delete state.moved[id]; save(); openWorkout(id); render(); }
@@ -809,7 +952,7 @@ function renderInsights(){
   const pb = personalBests();
   const streak = runStreak();
   const tw = thisWeekKm();
-  document.getElementById("main").innerHTML = topbar("Insights","TRAINING ANALYSIS") +
+  document.getElementById("main").innerHTML = topbar("Stats","TRAINING ANALYSIS") +
   `<div class="card glow">
     <div class="eyebrow">Plan completion</div>
     <div class="row"><div class="count" style="font-size:42px">${pct}<span style="color:var(--volt);font-size:18px">%</span></div>
@@ -855,14 +998,153 @@ function renderInsights(){
       const n=ALL.filter(w=>w.type===t).length, km=ALL.filter(w=>w.type===t).reduce((s,w)=>s+w.km,0);
       return `<div class="row" style="padding:8px 0;border-bottom:1px solid var(--line)"><span><span class="dot ${TYPES[t].cls}"></span> &nbsp;${TYPES[t].label}</span><span class="muted">${n} sessions · <b style="color:var(--text)">${km.toFixed(1)}km</b></span></div>`;
     }).join("")}
+  </div>
+  ${bodyCompCard()}
+  ${strengthStatsCard()}`;
+}
+
+function bodyCompCard(){
+  const b=[...state.bodyLog].sort((a,b)=>a.date<b.date?-1:1);
+  if(!b.length) return `<div class="card"><div class="eyebrow">⚖️ Body composition</div>
+    <div class="muted" style="font-size:14px">No weigh-ins logged yet. Track weight (and body fat if you have it) to watch the lean-and-build trend.</div>
+    <button class="btn ghost sm" style="margin-top:12px" onclick="openBodyLog()">＋ Log weigh-in</button></div>`;
+  const first=b[0], last=b[b.length-1];
+  const dKg=(last.kg-first.kg).toFixed(1);
+  // sparkline
+  const kgs=b.map(x=>x.kg); const mn=Math.min(...kgs)-0.5, mx=Math.max(...kgs)+0.5;
+  const pts=b.map((x,i)=>{ const px=30+(i*(460/Math.max(1,b.length-1))); const py=20+((mx-x.kg)/(mx-mn||1))*110; return px+","+py; });
+  return `<div class="card"><div class="eyebrow">⚖️ Body composition</div>
+    <div class="row" style="margin-bottom:6px"><b style="font-size:22px">${last.kg}<span class="muted" style="font-size:14px"> kg</span>${last.bf?` · ${last.bf}% bf`:""}</b>
+      <span class="muted" style="font-size:13px">${dKg>0?"+":""}${dKg}kg since start</span></div>
+    ${b.length>=2?`<svg class="chart" viewBox="0 0 520 150">
+      <polyline points="${pts.join(" ")}" fill="none" stroke="#d8f34e" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+      ${pts.map(p=>`<circle cx="${p.split(",")[0]}" cy="${p.split(",")[1]}" r="4" fill="#0b0e14" stroke="#d8f34e" stroke-width="2.5"/>`).join("")}
+    </svg>`:""}
+    <button class="btn ghost sm" style="margin-top:8px" onclick="openBodyLog()">＋ Log weigh-in</button>
   </div>`;
+}
+function strengthStatsCard(){
+  if(!state.gymLog.length) return `<div class="card"><div class="eyebrow">🏋️ Strength</div>
+    <div class="muted" style="font-size:14px">Log your first gym session and your estimated 1-rep-max trend and lifting volume will appear here.</div></div>`;
+  const mains=[["bench","Bench"],["squat","Squat"],["deadlift","Deadlift"],["ohp","Overhead Press"],["row2","Barbell Row"]];
+  const totalTon=state.gymLog.reduce((s,sess)=>s+sess.entries.reduce((a,e)=>a+e.sets.reduce((b,x)=>b+(x.w*x.reps||0),0),0),0);
+  const rows=mains.map(([id,label])=>{ const e=bestE1RM(id); return e?`<div class="row" style="padding:8px 0;border-bottom:1px solid var(--line)"><span class="muted">${label}</span><b>${e.e1rm}kg <span class="muted" style="font-weight:400;font-size:12px">est. 1RM</span></b></div>`:""; }).filter(Boolean).join("");
+  return `<div class="card"><div class="eyebrow">🏋️ Strength PRs</div>
+    ${rows||`<div class="muted" style="font-size:14px">Keep logging — main-lift PRs will populate here.</div>`}
+    <div class="row" style="padding:10px 0 0"><span class="muted">Total volume moved</span><b>${Math.round(totalTon).toLocaleString()} kg</b></div>
+    <div class="row" style="padding:6px 0 0"><span class="muted">Sessions logged</span><b>${state.gymLog.length}</b></div>
+  </div>`;
+}
+
+/* ================= CALENDAR & DAY ================= */
+const SESS_COLOR = { easy:"#7ed957", intervals:"#ff5b4a", tempo:"#ffb02e", long:"#9b6bff", taper:"#ff8a3d", race:"#ff3b5c", gym:"#33c4b3", body:"#8d99b0", run:"#7ed957", cross:"#4da3ff", strength:"#33c4b3" };
+function daySessions(iso){
+  const runs = ALL.filter(w=>effDate(w)===iso);
+  const gyms = state.gymLog.filter(s=>s.date===iso);
+  const acts = state.activities.filter(a=>a.date===iso);
+  const body = state.bodyLog.filter(b=>b.date===iso);
+  return {runs, gyms, acts, body};
+}
+function dayDots(iso){
+  const {runs,gyms,acts}=daySessions(iso); const out=[];
+  runs.forEach(w=>out.push(SESS_COLOR[w.type]||"#7ed957"));
+  gyms.forEach(()=>out.push(SESS_COLOR.gym));
+  acts.forEach(a=>{ if(!a.link) out.push(SESS_COLOR[a.atype||"run"]||"#7ed957"); });
+  return out.slice(0,5);
+}
+
+/* week strip for the home page */
+function weekStrip(){
+  const t=todayISO(); const base=mondayOf(t);
+  let html='<div class="weekStrip">';
+  for(let i=0;i<7;i++){
+    const d=addDays(base,i); const iso=isoOf(d); const isToday=iso===t;
+    const dots=dayDots(iso);
+    html+=`<div class="day ${isToday?"today":""}" onclick="openDay('${iso}')">
+      <small>${["Mon","Tue","Wed","Thu","Fri","Sat","Sun"][i]}</small>
+      <b>${d.getDate()}</b>
+      <div class="dots">${dots.map(c=>`<i style="background:${c}"></i>`).join("")}</div>
+    </div>`;
+  }
+  return html+'</div>';
+}
+
+let calMonth=null;
+function renderCal(){
+  const today=todayISO();
+  if(!calMonth){ const d=new Date(today+"T12:00:00"); calMonth={y:d.getFullYear(), m:d.getMonth()}; }
+  const first=new Date(calMonth.y, calMonth.m, 1);
+  const monthName=first.toLocaleDateString("en-GB",{month:"long",year:"numeric"});
+  const startDow=(first.getDay()+6)%7; // Mon=0
+  const daysInMonth=new Date(calMonth.y, calMonth.m+1, 0).getDate();
+  let cells="";
+  for(let i=0;i<startDow;i++) cells+=`<div class="calCell empty"></div>`;
+  for(let dnum=1;dnum<=daysInMonth;dnum++){
+    const iso=isoOf(new Date(calMonth.y,calMonth.m,dnum));
+    const dots=dayDots(iso); const isToday=iso===today;
+    cells+=`<div class="calCell ${isToday?"today":""}" onclick="openDay('${iso}')">
+      <span class="num">${dnum}</span>
+      <div class="cdots">${dots.map(c=>`<i style="background:${c}"></i>`).join("")}</div>
+    </div>`;
+  }
+  document.getElementById("main").innerHTML = topbar("Calendar","MONTH VIEW",{back:true,noCal:true}) +
+  `<div class="calHead">
+    <button class="iconBtn" onclick="calNav(-1)"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+    <b>${monthName}</b>
+    <button class="iconBtn" onclick="calNav(1)"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button>
+  </div>
+  <div class="calGrid">
+    ${["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map(d=>`<div class="dow">${d}</div>`).join("")}
+    ${cells}
+  </div>
+  <div class="calLegend">
+    <span><i style="background:#7ed957"></i>Easy</span>
+    <span><i style="background:#ff5b4a"></i>Intervals</span>
+    <span><i style="background:#ffb02e"></i>Tempo</span>
+    <span><i style="background:#9b6bff"></i>Long</span>
+    <span><i style="background:#ff3b5c"></i>Race</span>
+    <span><i style="background:#33c4b3"></i>Gym</span>
+  </div>
+  <button class="btn ghost" style="margin-top:16px" onclick="calToday()">Jump to today</button>`;
+}
+function calNav(dir){ let m=calMonth.m+dir, y=calMonth.y; if(m<0){m=11;y--;} if(m>11){m=0;y++;} calMonth={y,m}; renderCal(); }
+function calToday(){ const d=new Date(todayISO()+"T12:00:00"); calMonth={y:d.getFullYear(),m:d.getMonth()}; renderCal(); }
+
+function openDay(iso){
+  const {runs,gyms,acts,body}=daySessions(iso);
+  const dow=new Date(iso+"T12:00:00").getDay();
+  const gymToday={1:"A",3:"B",4:"C",5:"D"}[dow]||null;
+  let html=`<h2>${fmtD(iso)}</h2>`;
+  if(!runs.length&&!gyms.length&&!acts.length&&!body.length&&!gymToday){
+    html+=`<div class="muted" style="font-size:14px;margin-top:6px">Nothing scheduled — a rest day. Recovery is where the gains land.</div>`;
+  }
+  if(runs.length){ html+=`<div class="eyebrow" style="margin-top:14px">Planned run</div>`+
+    runs.map(w=>`<div class="card" style="background:var(--panel2);padding:13px;margin-top:8px;cursor:pointer" onclick="closeSheet();openWorkout('${w.id}')">
+      <div class="row"><b>${esc(w.name)}</b><span class="muted">${w.km}km</span></div>
+      <div class="muted" style="font-size:13px">${TYPES[w.type].label} · ${w.dur}${state.done[w.id]?' · done ✓':''}</div></div>`).join("");
+  }
+  if(gymToday && !gyms.length){ const d=gymDay(gymToday);
+    html+=`<div class="eyebrow" style="margin-top:14px">Suggested gym</div>
+      <div class="card" style="background:var(--panel2);padding:13px;margin-top:8px;cursor:pointer" onclick="closeSheet();startGymSession('${gymToday}')">
+      <div class="row"><b>${esc(d.name)}</b><span class="muted">${d.ex.length} ex</span></div>
+      <div class="muted" style="font-size:13px">${esc(d.focus)}</div></div>`;
+  }
+  if(gyms.length){ html+=`<div class="eyebrow" style="margin-top:14px">Gym done</div>`+
+    gyms.map(s=>`<div class="card" style="background:var(--panel2);padding:13px;margin-top:8px;cursor:pointer" onclick="closeSheet();viewGymSession('${s.date}','${s.dayKey}')">
+      <b>🏋️ ${esc(s.name)}</b><div class="muted" style="font-size:13px">${s.entries.length} exercises logged</div></div>`).join("");
+  }
+  if(acts.length){ html+=`<div class="eyebrow" style="margin-top:14px">Logged activity</div>`+
+    acts.map(a=>`<div class="card" style="background:var(--panel2);padding:13px;margin-top:8px"><b>${esc(a.name)}</b>${a.km?`<div class="muted" style="font-size:13px">${a.km}km · ${paceFrom(a.km,a.mins)}</div>`:""}</div>`).join("");
+  }
+  if(body.length){ html+=`<div class="muted" style="font-size:13px;margin-top:12px">⚖️ ${body[0].kg}kg${body[0].bf?` · ${body[0].bf}% bf`:""}</div>`; }
+  openSheet(html);
 }
 
 /* ================= RACE ================= */
 function renderRace(){
   const d=daysUntil(RACE.date);
   const ticked=Object.values(state.checklist).filter(Boolean).length;
-  document.getElementById("main").innerHTML = topbar("Race Day","YORK 10K · 2 AUG") +
+  document.getElementById("main").innerHTML = topbar("Race Day","YORK 10K · 2 AUG",{back:true}) +
   `<div class="card glow hero">
     <div class="track"></div>
     <div class="eyebrow">Sunday 2 August 2026</div>
@@ -922,6 +1204,154 @@ function thisWeekKm(){
   return {done, plan:weekKm(cw)};
 }
 function shoeKm(id){ return state.activities.filter(a=>a.shoe===id).reduce((s,a)=>s+(a.km||0),0); }
+
+/* ============ STRENGTH ENGINE ============ */
+function lastEntry(exId, beforeDate){
+  // most recent logged sets for an exercise (optionally before a given date)
+  const hits=state.gymLog.filter(s=>s.entries.some(e=>e.exId===exId && e.sets.some(x=>x.w||x.reps)) && (!beforeDate||s.date<beforeDate))
+    .sort((a,b)=>a.date<b.date?1:-1);
+  if(!hits.length) return null;
+  const e=hits[0].entries.find(e=>e.exId===exId);
+  return {date:hits[0].date, sets:e.sets.filter(x=>x.w||x.reps)};
+}
+function bestE1RM(exId){
+  let best=0, when=null;
+  state.gymLog.forEach(s=>{ const e=s.entries.find(e=>e.exId===exId); if(e) e.sets.forEach(x=>{
+    if(x.w&&x.reps){ const e1=x.w*(1+x.reps/30); if(e1>best){best=e1;when=s.date;} } }); });
+  return best? {e1rm:Math.round(best), when} : null;
+}
+function repTop(reps){ const m=String(reps).match(/(\d+)\s*[–-]\s*(\d+)/); return m?+m[2]:(parseInt(reps)||0); }
+function repLow(reps){ const m=String(reps).match(/(\d+)/); return m?+m[1]:0; }
+function progressionAdvice(ex){
+  const last=lastEntry(ex.id);
+  if(!last||!last.sets.length) return {tone:"new", msg:"First time logging this — pick a weight you can control for all sets, leaving 1–2 reps in the tank."};
+  const top=repTop(ex.reps), low=repLow(ex.reps);
+  const working=last.sets.filter(s=>s.reps);
+  const allHitTop = working.length>=ex.sets-1 && working.every(s=>s.reps>=top);
+  const anyBelowLow = working.some(s=>s.reps<low);
+  const w=working[0]?working[0].w:0;
+  const inc = (ex.kind==="compound" && /Squat|Deadlift|Leg Press/i.test(ex.name)) ? 5 : (ex.kind==="isolation"?1.25:2.5);
+  if(allHitTop) return {tone:"up", msg:`You hit the top of the range across the board last time. Add ${inc}kg → try ${w?(w+inc):"+"+inc}kg and aim for the bottom of the range again.`};
+  if(anyBelowLow) return {tone:"hold", msg:`Some sets dropped below ${low} reps last time — stay at ${w?w+"kg":"the same weight"} and own all sets before adding load.`};
+  return {tone:"hold", msg:`Repeat ${w?w+"kg":"this weight"} and push for the top of the range (${top} reps) on every set — then you earn the increase.`};
+}
+function lastSetsLabel(exId){
+  const l=lastEntry(exId); if(!l||!l.sets.length) return "";
+  return l.sets.map(s=>(s.w||"–")+"×"+(s.reps||"–")).join(", ");
+}
+
+/* ---- gym session flow (working set state held in memory until saved) ---- */
+let GS=null; // {dayKey, date, entries:{exId:[{w,reps}]}}
+function startGymSession(dayKey){
+  const d=gymDay(dayKey);
+  GS={ dayKey, date:todayISO(), name:d.name, entries:{} };
+  d.ex.forEach(ex=>{ const last=lastEntry(ex.id);
+    GS.entries[ex.id]=Array.from({length:ex.sets},(_,i)=> (last&&last.sets[i])?{w:last.sets[i].w,reps:""}:{w:"",reps:""}); });
+  openGymSession();
+}
+function openGymSession(){
+  const d=gymDay(GS.dayKey);
+  openSheet(`
+    <h2>${esc(d.name)}</h2>
+    <div class="muted" style="font-size:13.5px">${esc(d.focus)} · ${fmtD(GS.date)}</div>
+    ${d.ex.map(ex=>{
+      const adv=progressionAdvice(ex); const lastL=lastSetsLabel(ex.id);
+      const toneColor={up:"var(--easy1)",hold:"var(--tempo2)",new:"var(--muted)"}[adv.tone];
+      return `<div class="card" style="background:var(--panel2);padding:13px;margin-top:12px">
+        <div class="row"><b style="font-size:15.5px">${esc(ex.name)}</b><span class="muted" style="font-size:12px">${ex.sets}×${ex.reps}</span></div>
+        <div class="faint" style="font-size:12px;margin:2px 0 4px">${esc(ex.cue)}</div>
+        ${lastL?`<div style="font-size:12.5px;color:var(--muted);margin-bottom:4px">Last time: ${lastL}</div>`:""}
+        <div style="font-size:12.5px;color:${toneColor};margin-bottom:9px">${adv.tone==="up"?"↑ ":adv.tone==="hold"?"→ ":"• "}${esc(adv.msg)}</div>
+        <div id="sets-${ex.id}">
+          ${GS.entries[ex.id].map((s,i)=>`<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
+            <span class="muted" style="width:42px;font-size:13px">Set ${i+1}</span>
+            <input type="number" inputmode="decimal" placeholder="kg" value="${s.w!==""?s.w:""}" style="flex:1;padding:9px" onchange="gsSet('${ex.id}',${i},'w',this.value)">
+            <span class="muted">×</span>
+            <input type="number" inputmode="numeric" placeholder="reps" value="${s.reps!==""?s.reps:""}" style="flex:1;padding:9px" onchange="gsSet('${ex.id}',${i},'reps',this.value)">
+          </div>`).join("")}
+        </div>
+        <button class="btn ghost sm" onclick="gsAddSet('${ex.id}')">＋ Add set</button>
+      </div>`;
+    }).join("")}
+    <label>Session notes</label>
+    <textarea id="gsNote" rows="2" placeholder="Energy, niggles, PBs…"></textarea>
+    <button class="btn volt" style="margin-top:16px" onclick="saveGymSession()">Finish & save session</button>
+  `);
+}
+function gsSet(exId,i,field,val){ GS.entries[exId][i][field]= field==="w"?(parseFloat(val)||"") : (parseInt(val)||""); }
+function gsAddSet(exId){ GS.entries[exId].push({w:"",reps:""}); openGymSession(); }
+function saveGymSession(){
+  const note=document.getElementById("gsNote").value.trim();
+  const entries=Object.entries(GS.entries).map(([exId,sets])=>({exId, sets:sets.filter(s=>s.w||s.reps)})).filter(e=>e.sets.length);
+  if(!entries.length){ toast("Log at least one set"); return; }
+  state.gymLog.push({date:GS.date, dayKey:GS.dayKey, name:GS.name, entries, note});
+  const tonnage=entries.reduce((s,e)=>s+e.sets.reduce((a,x)=>a+(x.w*x.reps||0),0),0);
+  GS=null; save(); closeSheet(); render();
+  toast("Session saved · "+Math.round(tonnage)+"kg moved 💪");
+}
+
+/* ---- body metrics ---- */
+function openBodyLog(){
+  const last=state.bodyLog.slice().sort((a,b)=>a.date<b.date?1:-1)[0];
+  openSheet(`
+    <h2>Log body metrics</h2>
+    <div class="muted" style="font-size:14px">Track the trend, not the daily noise. Weigh in fasted, same time of day.</div>
+    <label>Date</label><input type="date" id="blDate" value="${todayISO()}">
+    <div style="display:flex;gap:10px">
+      <div style="flex:1"><label>Weight (kg)</label><input id="blKg" type="number" inputmode="decimal" step="0.1" placeholder="${last?last.kg:81}"></div>
+      <div style="flex:1"><label>Body fat % (optional)</label><input id="blBf" type="number" inputmode="decimal" step="0.1" placeholder="${last&&last.bf?last.bf:16}"></div>
+    </div>
+    <button class="btn volt" style="margin-top:16px" onclick="saveBody()">Save</button>
+  `);
+}
+function saveBody(){
+  const kg=parseFloat(document.getElementById("blKg").value), bf=parseFloat(document.getElementById("blBf").value)||null;
+  if(!kg){ toast("Enter your weight"); return; }
+  const date=document.getElementById("blDate").value||todayISO();
+  state.bodyLog=state.bodyLog.filter(b=>b.date!==date); state.bodyLog.push({date,kg,bf});
+  save(); closeSheet(); render(); toast("Logged ✓");
+}
+
+/* ---- GYM TAB ---- */
+function renderGym(){
+  const recent=[...state.gymLog].sort((a,b)=>a.date<b.date?1:-1).slice(0,3);
+  const last7=state.gymLog.filter(s=>daysUntil(s.date)>=-7).length;
+  document.getElementById("main").innerHTML = topbar("Gym","LEAN & BUILD") +
+  `<div class="card glow">
+    <div class="eyebrow">Strength block</div>
+    <div class="row"><div><b style="font-size:18px">Upper / Lower · 4–5×</b><div class="muted" style="font-size:13px">Goal: lean + build · since ${fmtShort(state.gymStart)}</div></div>
+    <div style="text-align:right"><b style="font-size:22px">${last7}</b><div class="muted" style="font-size:11px">sessions / 7 days</div></div></div>
+  </div>
+  <div class="coach"><div class="face">🏋️</div><div><b style="color:var(--text);font-size:13px;display:block;margin-bottom:2px">Suggested week</b>${esc(GYM.schedule)}</div></div>
+  <div class="eyebrow" style="margin-top:18px">Start a session</div>
+  ${GYM.days.map(d=>{
+    const lastDone=[...state.gymLog].filter(s=>s.dayKey===d.key).sort((a,b)=>a.date<b.date?1:-1)[0];
+    return `<div class="wo" onclick="startGymSession('${d.key}')">
+      <div class="stripe ${d.key==='A'||d.key==='C'?'t-intervals':d.key==='E'?'t-tempo':'t-long'}"></div>
+      <div class="body"><h3>${esc(d.name)}</h3><div class="sub">${esc(d.focus)}</div>
+      <span class="tag">${d.ex.length} exercises${lastDone?` · last ${fmtShort(lastDone.date)}`:""}</span></div>
+      <div class="right"><div class="check">▶</div></div>
+    </div>`;
+  }).join("")}
+  ${recent.length?`<div class="eyebrow" style="margin-top:18px">Recent sessions</div>${recent.map(s=>{
+    const ton=s.entries.reduce((a,e)=>a+e.sets.reduce((b,x)=>b+(x.w*x.reps||0),0),0);
+    return `<div class="act"><div class="top"><h3>🏋️ ${esc(s.name)}</h3><span class="when">${fmtD(s.date)}</span></div>
+      <div class="muted" style="font-size:13px;margin-top:6px">${s.entries.length} exercises · ${Math.round(ton)}kg total volume</div>
+      ${s.note?`<div class="muted" style="font-size:13.5px;margin-top:6px">${esc(s.note)}</div>`:""}
+      <div class="actbtns"><button class="btn ghost sm" onclick="viewGymSession('${s.date}','${s.dayKey}')">View</button>
+      <button class="btn danger sm" onclick="delGym('${s.date}','${s.dayKey}')">Delete</button></div>
+    </div>`;}).join("")}`:""}`;
+}
+function viewGymSession(date,dayKey){
+  const s=state.gymLog.find(x=>x.date===date&&x.dayKey===dayKey); if(!s) return;
+  openSheet(`<h2>${esc(s.name)}</h2><div class="muted">${fmtD(s.date)}</div>
+    ${s.entries.map(e=>{const ex=gymEx(e.exId); return `<div class="card" style="background:var(--panel2);padding:12px;margin-top:10px">
+      <b>${esc(ex?ex.name:e.exId)}</b>
+      <div class="muted" style="font-size:14px;margin-top:5px">${e.sets.map((x,i)=>`Set ${i+1}: <b style="color:var(--text)">${x.w||"–"}kg × ${x.reps||"–"}</b>`).join("&nbsp;&nbsp;·&nbsp;&nbsp;")}</div>
+    </div>`;}).join("")}
+    ${s.note?`<div class="muted" style="margin-top:12px">📝 ${esc(s.note)}</div>`:""}`);
+}
+function delGym(date,dayKey){ uiConfirm("Delete this session?",()=>{ state.gymLog=state.gymLog.filter(x=>!(x.date===date&&x.dayKey===dayKey)); save(); render(); }); }
 
 /* ---------- plan creator ---------- */
 function openPlanCreator(){
@@ -1030,6 +1460,9 @@ function openProfile(){
     <button class="btn ghost" onclick="openPlanCreator()">＋ Create a new goal-based plan</button>
     ${state.customPlan?`<button class="btn ghost" style="margin-top:10px" onclick="useDefaultPlan()">Restore York 10K plan</button>`:""}
 
+    <div class="eyebrow" style="margin-top:22px">🔶 Strava</div>
+    <div class="muted" style="font-size:13.5px;line-height:1.55">Two-way: export any tracked run as a <b>GPX</b> from the Log tab and upload it at strava.com/upload — it appears with the full map and splits. Live auto-sync from Strava needs a small server (a static app can't hold Strava's secure login), so the GPX route is the working all-in-one path for now.</div>
+
     <div class="eyebrow" style="margin-top:22px">Reset</div>
     <button class="btn danger" onclick="resetAll()">Erase all data</button>
   `);
@@ -1043,7 +1476,7 @@ function delShoe(id){ state.shoes=state.shoes.filter(s=>s.id!==id); state.activi
 function exportData(){
   try{
     const dump={ app:"pacecraft", ver:APP_VER, exported:new Date().toISOString(),
-      done:state.done, notes:state.notes, moved:state.moved, activities:state.activities, checklist:state.checklist, shoes:state.shoes, customPlan:state.customPlan };
+      done:state.done, notes:state.notes, moved:state.moved, activities:state.activities, checklist:state.checklist, shoes:state.shoes, customPlan:state.customPlan, gymLog:state.gymLog, bodyLog:state.bodyLog, gymStart:state.gymStart };
     const blob=new Blob([JSON.stringify(dump,null,2)],{type:"application/json"});
     const url=URL.createObjectURL(blob); const a=document.createElement("a");
     a.href=url; a.download="pacecraft-backup-"+todayISO()+".json";
@@ -1062,6 +1495,7 @@ function importData(input){
         state.done=d.done||{}; state.notes=d.notes||{}; state.moved=d.moved||{};
         state.activities=d.activities||[]; state.checklist=d.checklist||{}; state.shoes=d.shoes||[];
         state.customPlan=d.customPlan||null;
+        state.gymLog=d.gymLog||[]; state.bodyLog=d.bodyLog||[]; if(d.gymStart) state.gymStart=d.gymStart;
         save(); if(state.customPlan){ applyPlan(state.customPlan); } else { PLAN=DEFAULT_PLAN; RACE=DEFAULT_RACE; ZONES=DEFAULT_ZONES; rebuildALL(); }
         closeSheet(); render(); toast("Backup restored ✓");
       });
@@ -1072,6 +1506,7 @@ function importData(input){
 function resetAll(){
   uiConfirm("Erase ALL logged runs, notes and settings? This can't be undone.", ()=>{
     state.done={};state.notes={};state.moved={};state.activities=[];state.checklist={};state.shoes=[];state.customPlan=null;
+    state.gymLog=[];state.bodyLog=[];
     PLAN=DEFAULT_PLAN; RACE=DEFAULT_RACE; ZONES=DEFAULT_ZONES; rebuildALL();
     save(); closeSheet(); render(); toast("All data cleared");
   });
@@ -1090,8 +1525,9 @@ function uiConfirm(msg, onYes){
 function confirmNo(){ document.getElementById("confirmWrap").classList.remove("open"); _confirmCb=null; }function closeSheet(){ document.getElementById("sheetWrap").classList.remove("open"); }
 
 let tab="today";
-function render(){ ({today:renderToday,plan:renderPlan,log:renderLog,insights:renderInsights,race:renderRace})[tab](); }
+function render(){ ({today:renderToday,plan:renderPlan,gym:renderGym,log:renderLog,insights:renderInsights,race:renderRace,cal:renderCal})[tab](); }
 document.querySelectorAll("nav button").forEach(b=>b.addEventListener("click",()=>{
+  navStack=[];
   tab=b.dataset.tab;
   document.querySelectorAll("nav button").forEach(x=>x.classList.toggle("active",x===b));
   window.scrollTo(0,0); render();
